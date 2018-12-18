@@ -53,6 +53,8 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
       }
       Seq(exeId).iterator
     }, preservesPartitioning = true)
+
+    // Each executor has its own set of train and valid data
     val (trainDataNum, validDataNum) = dataRdd.mapPartitions(iterator => {
       trainData = new DataSet
       validData = new DataSet
@@ -104,17 +106,20 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
   protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
     val epochStart = System.currentTimeMillis()
     var trainLoss = 0.0
+    // One epoch means training of all batches
     for (batch <- 0 until batchNum) {
       val batchLoss = trainOneIteration(epoch, batch)
       trainLoss += batchLoss
     }
     val epochCost = System.currentTimeMillis() - epochStart
     logger.info(s"Epoch[$epoch] train cost $epochCost ms, loss=${trainLoss / batchNum}")
+    // Result of one epoch training is an average of batches training
     trainLoss / batchNum
   }
 
   protected def trainOneIteration(epoch: Int, batch: Int): Double = {
     val batchStart = System.currentTimeMillis()
+    // train one batch
     val batchLoss = computeGradient(epoch, batch)
     aggregateAndUpdate(epoch, batch)
     logger.info(s"Epoch[$epoch] batch $batch train cost "
@@ -126,13 +131,16 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
     val miniBatchGDStart = System.currentTimeMillis()
     val (batchSize, objLoss, regLoss) = executors.aggregate(0, 0.0, 0.0)(
       seqOp = (_, _) => {
-        val (grad, batchSize, objLoss ,regLoss) =
+        // each of the executors computes gradient descent of its own piece of the data set
+        val (grad, batchSize, objLoss, regLoss) =
           optimizer.miniBatchGradientDescent(weights, trainData, loss)
+        // each executor has its own gradient value based on its partition of data
         gradient = grad
         (batchSize, objLoss, regLoss)
       },
       combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3)
     )
+    // why regLess / conf.workerNum, where is this distributed among workers?
     val batchLoss = objLoss / batchSize + regLoss / conf.workerNum
     logger.info(s"Epoch[$epoch] batch $batch compute gradient cost "
       + s"${System.currentTimeMillis() - miniBatchGDStart} ms, "
@@ -142,17 +150,28 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
 
   protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
     val aggrStart = System.currentTimeMillis()
+    // Based on number of features, sum partial compressed gradients to one gradient
+    // result is dense or sparse gradient NOT SKETCH
     val sum = Gradient.sum(
       conf.featureNum,
+      // Compression before sending gradients to driver
       executors.map(_ => Gradient.compress(gradient, bcConf.value)).collect()
     )
+
+    // Compressing summed up dense/sparse gradient to sketch before sending it to all workers
     val grad = Gradient.compress(sum, conf)
+
+    // Since we summed up partial gradients into one, we take average values.
+    // no. of partial gradients = no. of workers =? no. of executors
     grad.timesBy(1.0 / conf.workerNum)
     logger.info(s"Epoch[$epoch] batch $batch aggregate gradients cost "
       + s"${System.currentTimeMillis() - aggrStart} ms")
 
     val updateStart = System.currentTimeMillis()
     val bcGrad = sc.broadcast(grad)
+    // Each executor updates weights based on the summed up and compressed gradient
+    // Communication between driver and executor is via compressed gradient
+    // Updating weights values is based on decompressed one
     executors.foreach(_ => optimizer.update(bcGrad.value, weights))
     logger.info(s"Epoch[$epoch] batch $batch update weights cost "
       + s"${System.currentTimeMillis() - updateStart} ms")

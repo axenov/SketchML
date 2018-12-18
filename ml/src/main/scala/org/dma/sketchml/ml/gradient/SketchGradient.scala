@@ -55,11 +55,13 @@ class SketchGradient(d: Int, binNum: Int, groupNum: Int, rowNum: Int, colRatio: 
   override def countNNZ: Int = nnz
 
   override def toDense: DenseDoubleGradient = {
+    // apparently for dense gradients decompression is simple
     val values = bins.map(bin => bucketValues(bin))
     new DenseDoubleGradient(dim, values)
   }
 
   override def toSparse: SparseDoubleGradient = {
+    // decompression magic happens here
     val kb = sketch.restore()
     val indices = kb.getLeft
     val bins = kb.getRight

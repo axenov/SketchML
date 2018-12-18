@@ -27,6 +27,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
     var objLoss = 0.0
     val batchSize = (dataSet.size * batchSpRatio).toInt
     for (i <- 0 until batchSize) {
+      // looping read means when it reaches the end of the data set it starts from the beginning
       val ins = dataSet.loopingRead
       val pre = loss.predict(weight, ins.feature)
       val gradScala = loss.grad(pre, ins.label)
@@ -34,6 +35,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       objLoss += loss.loss(pre, ins.label)
     }
     val grad = denseGrad.toAuto
+    // compute average gradient values
     grad.timesBy(1.0 / batchSize)
 
     if (loss.isL1Reg)

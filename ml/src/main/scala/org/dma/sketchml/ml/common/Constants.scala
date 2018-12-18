@@ -7,6 +7,7 @@ object Constants {
   val FORMAT_LIBSVM: String = "libsvm"
   val FORMAT_CSV: String = "csv"
   val FORMAT_DUMMY: String = "dummy"
+  val FORMAT_LIBSVM_SEMICOLONS ="libsvmSemicolons"
   val GRADIENT_COMPRESSOR_NONE: String = "None"
   val GRADIENT_COMPRESSOR_FLOAT: String = "Float"
   val GRADIENT_COMPRESSOR_SKETCH: String = "Sketch"
