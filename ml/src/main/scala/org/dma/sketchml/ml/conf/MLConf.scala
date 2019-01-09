@@ -44,6 +44,11 @@ object MLConf {
   val FIXED_POINT_BIT_NUM: String = "spark.sketchml.fixed.point.bit.num"
   val DEFAULT_FIXED_POINT_BIT_NUM = 8
 
+  // FLINK
+  val WINDOW_PROCESSING_TIME_SECONDS: Int = 1
+  val WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER: Int = 100
+  val PARALLELISM: Int = 1
+
   def apply(sparkConf: SparkConf): MLConf = MLConf(
     sparkConf.get(ML_ALGORITHM),
     sparkConf.get(ML_INPUT_PATH),

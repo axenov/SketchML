@@ -1,5 +1,6 @@
 package org.dma.sketchml.ml.data
 
+import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.rdd.RDD
@@ -19,6 +20,10 @@ object Parser {
     sc.textFile(input)
       .map(line => parse(line, maxDim, negY))
       .repartition(numPartition)
+  }
+
+  def loadStreamData(input: String, format: String, maxDim: Int, numPartition: Int, negY: Boolean = true): DataStream[LabeledData] = {
+    null
   }
 
   def parseLibSVM(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {
