@@ -1,6 +1,6 @@
 package org.dma.sketchml.ml.conf
 
-import org.apache.spark.SparkConf
+import org.apache.flink.api.java.utils.ParameterTool
 import org.dma.sketchml.ml.common.Constants._
 import org.dma.sketchml.sketch.base.{Quantizer, SketchMLException}
 import org.dma.sketchml.sketch.sketch.frequency.{GroupedMinMaxSketch, MinMaxSketch}
@@ -49,25 +49,25 @@ object MLConf {
   val WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER: Int = 100
   val PARALLELISM: Int = 1
 
-  def apply(sparkConf: SparkConf): MLConf = MLConf(
-    sparkConf.get(ML_ALGORITHM),
-    sparkConf.get(ML_INPUT_PATH),
-    sparkConf.get(ML_INPUT_FORMAT),
-    sparkConf.get(ML_NUM_WORKER).toInt,
-    sparkConf.get(ML_NUM_FEATURE).toInt,
-    sparkConf.getDouble(ML_VALID_RATIO, DEFAULT_ML_VALID_RATIO),
-    sparkConf.getInt(ML_EPOCH_NUM, DEFAULT_ML_EPOCH_NUM),
-    sparkConf.getDouble(ML_BATCH_SAMPLE_RATIO, DEFAULT_ML_BATCH_SAMPLE_RATIO),
-    sparkConf.getDouble(ML_LEARN_RATE, DEFAULT_ML_LEARN_RATE),
-    sparkConf.getDouble(ML_LEARN_DECAY, DEFAULT_ML_LEARN_DECAY),
-    sparkConf.getDouble(ML_REG_L1, DEFAULT_ML_REG_L1),
-    sparkConf.getDouble(ML_REG_L2, DEFAULT_ML_REG_L2),
-    sparkConf.get(SKETCH_GRADIENT_COMPRESSOR, DEFAULT_SKETCH_GRADIENT_COMPRESSOR),
-    sparkConf.getInt(SKETCH_QUANTIZATION_BIN_NUM, DEFAULT_SKETCH_QUANTIZATION_BIN_NUM),
-    sparkConf.getInt(SKETCH_MINMAXSKETCH_GROUP_NUM, DEFAULT_SKETCH_MINMAXSKETCH_GROUP_NUM),
-    sparkConf.getInt(SKETCH_MINMAXSKETCH_ROW_NUM, DEFAULT_SKETCH_MINMAXSKETCH_ROW_NUM),
-    sparkConf.getDouble(SKETCH_MINMAXSKETCH_COL_RATIO, DEFAULT_SKETCH_MINMAXSKETCH_COL_RATIO),
-    sparkConf.getInt(FIXED_POINT_BIT_NUM, DEFAULT_FIXED_POINT_BIT_NUM)
+  def apply(parameters: ParameterTool): MLConf = MLConf(
+    parameters.get(ML_ALGORITHM),
+    parameters.get(ML_INPUT_PATH),
+    parameters.get(ML_INPUT_FORMAT),
+    parameters.get(ML_NUM_WORKER).toInt,
+    parameters.get(ML_NUM_FEATURE).toInt,
+    parameters.getDouble(ML_VALID_RATIO, DEFAULT_ML_VALID_RATIO),
+    parameters.getInt(ML_EPOCH_NUM, DEFAULT_ML_EPOCH_NUM),
+    parameters.getDouble(ML_BATCH_SAMPLE_RATIO, DEFAULT_ML_BATCH_SAMPLE_RATIO),
+    parameters.getDouble(ML_LEARN_RATE, DEFAULT_ML_LEARN_RATE),
+    parameters.getDouble(ML_LEARN_DECAY, DEFAULT_ML_LEARN_DECAY),
+    parameters.getDouble(ML_REG_L1, DEFAULT_ML_REG_L1),
+    parameters.getDouble(ML_REG_L2, DEFAULT_ML_REG_L2),
+    parameters.get(SKETCH_GRADIENT_COMPRESSOR, DEFAULT_SKETCH_GRADIENT_COMPRESSOR),
+    parameters.getInt(SKETCH_QUANTIZATION_BIN_NUM, DEFAULT_SKETCH_QUANTIZATION_BIN_NUM),
+    parameters.getInt(SKETCH_MINMAXSKETCH_GROUP_NUM, DEFAULT_SKETCH_MINMAXSKETCH_GROUP_NUM),
+    parameters.getInt(SKETCH_MINMAXSKETCH_ROW_NUM, DEFAULT_SKETCH_MINMAXSKETCH_ROW_NUM),
+    parameters.getDouble(SKETCH_MINMAXSKETCH_COL_RATIO, DEFAULT_SKETCH_MINMAXSKETCH_COL_RATIO),
+    parameters.getInt(FIXED_POINT_BIT_NUM, DEFAULT_FIXED_POINT_BIT_NUM)
   )
 
 }
