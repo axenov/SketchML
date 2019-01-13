@@ -1,10 +1,10 @@
 package org.dma.sketchml.ml.data
 
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.SparseVector
 import org.apache.flink.ml.math.DenseVector
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala.DataStream
-
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.util.Maths
 
@@ -19,9 +19,10 @@ object Parser {
       case Constants.FORMAT_LIBSVM_SEMICOLONS => Parser.parseLibSVMWithSemicolons
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
+    implicit val typeInfo = TypeInformation.of(classOf[(LabeledData)])
     sc.readTextFile(input)
       .map { line => parse(line, maxDim, negY) }
-      //.repartition(numPartition)
+      .setParallelism(numPartition)
   }
 
   def parseLibSVM(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {
