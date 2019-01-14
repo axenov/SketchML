@@ -44,7 +44,7 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
 
   def loadData(): Unit = {
     val startTime = System.currentTimeMillis()
-    val dataRdd = Parser.loadData(conf.input, conf.format, conf.featureNum, conf.workerNum)
+    val dataRdd = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)
       .persist(StorageLevel.MEMORY_AND_DISK)
     executors = dataRdd.mapPartitionsWithIndex((partId, _) => {
       val exeId = SparkEnv.get.executorId match {
@@ -62,6 +62,7 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
         if (Random.nextDouble() > bcConf.value.validRatio)
           trainData += iterator.next()
         else
+
           validData += iterator.next()
       }
       Seq((trainData.size, validData.size)).iterator

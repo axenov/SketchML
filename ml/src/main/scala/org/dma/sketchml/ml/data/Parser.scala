@@ -1,14 +1,17 @@
 package org.dma.sketchml.ml.data
 
-import org.apache.spark.SparkContext
-import org.apache.spark.ml.linalg.Vectors
-import org.apache.spark.rdd.RDD
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.ml.math.SparseVector
+import org.apache.flink.ml.math.DenseVector
+import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.scala.DataStream
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.util.Maths
 
+
 object Parser {
-  def loadData(input: String, format: String, maxDim: Int, numPartition: Int,
-               negY: Boolean = true)(implicit sc: SparkContext): RDD[LabeledData] = {
+  def loadStreamData(input: String, format: String, maxDim: Int, numPartition: Int,
+               negY: Boolean = true)(implicit sc: StreamExecutionEnvironment): DataStream[LabeledData] = {
     val parse: (String, Int, Boolean) => LabeledData = format match {
       case Constants.FORMAT_LIBSVM => Parser.parseLibSVM
       case Constants.FORMAT_CSV => Parser.parseCSV
@@ -16,9 +19,10 @@ object Parser {
       case Constants.FORMAT_LIBSVM_SEMICOLONS => Parser.parseLibSVMWithSemicolons
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
-    sc.textFile(input)
-      .map(line => parse(line, maxDim, negY))
-      .repartition(numPartition)
+    implicit val typeInfo = TypeInformation.of(classOf[(LabeledData)])
+    sc.readTextFile(input)
+      .map { line => parse(line, maxDim, negY) }
+      .setParallelism(numPartition)
   }
 
   def parseLibSVM(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {
@@ -38,7 +42,7 @@ object Parser {
       indices(i) = kv(0).toInt
       values(i) = kv(1).toDouble
     }
-    val x = Vectors.sparse(maxDim, indices, values)
+    val x = SparseVector(maxDim, indices, values)
 
     LabeledData(y, x)
   }
@@ -60,7 +64,7 @@ object Parser {
       indices(i) = kv(0).toInt
       values(i) = kv(1).toDouble
     }
-    val x = Vectors.sparse(maxDim, indices, values)
+    val x = SparseVector(maxDim, indices, values)
 
     LabeledData(y, x)
   }
@@ -76,7 +80,7 @@ object Parser {
 
     val nnz = splits.length - 1
     val values = splits.slice(1, nnz + 1).map(_.trim.toDouble)
-    val x = Vectors.dense(values)
+    val x = DenseVector(values)
 
     LabeledData(y, x)
   }
@@ -93,7 +97,7 @@ object Parser {
     val nnz = splits.length - 1
     val indices = splits.slice(1, nnz + 1).map(_.trim.toInt)
     val values = Array.fill(nnz)(1.0)
-    val x = Vectors.sparse(maxDim, indices, values)
+    val x = SparseVector(maxDim, indices, values)
 
     LabeledData(y, x)
   }
