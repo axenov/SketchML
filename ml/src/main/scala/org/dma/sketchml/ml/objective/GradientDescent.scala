@@ -1,6 +1,6 @@
 package org.dma.sketchml.ml.objective
 
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.flink.ml.math.DenseVector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.DataSet
 import org.dma.sketchml.ml.gradient._
@@ -27,7 +27,6 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
     var objLoss = 0.0
     val batchSize = (dataSet.size * batchSpRatio).toInt
     for (i <- 0 until batchSize) {
-      // looping read means when it reaches the end of the data set it starts from the beginning
       val ins = dataSet.loopingRead
       val pre = loss.predict(weight, ins.feature)
       val gradScala = loss.grad(pre, ins.label)
@@ -35,7 +34,6 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       objLoss += loss.loss(pre, ins.label)
     }
     val grad = denseGrad.toAuto
-    // compute average gradient values
     grad.timesBy(1.0 / batchSize)
 
     if (loss.isL1Reg)
@@ -70,7 +68,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   }
 
   private def l2Reg(grad: Gradient, weight: DenseVector, lambda: Double): Unit = {
-    val w = weight.values
+    val w = weight.data
     grad match {
       case dense: DenseDoubleGradient => {
         val v = dense.values
@@ -105,7 +103,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
 
   private def update(grad: DenseDoubleGradient, weight: DenseVector, lr: Double): Unit = {
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- w.indices)
       w(i) -= g(i) * lr
   }
@@ -113,14 +111,14 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   private def update(grad: SparseDoubleGradient, weight: DenseVector, lr: Double): Unit = {
     val k = grad.indices
     val v = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- k.indices)
       w(k(i)) -= v(i) * lr
   }
 
   private def update(grad: DenseFloatGradient, weight: DenseVector, lr: Double): Unit = {
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- w.indices)
       w(i) -= g(i) * lr
   }
@@ -128,7 +126,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   private def update(grad: SparseFloatGradient, weight: DenseVector, lr: Double): Unit = {
     val k = grad.indices
     val v = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- k.indices)
       w(k(i)) -= v(i) * lr
   }

@@ -1,6 +1,8 @@
 package org.dma.sketchml.ml.objective
 
-import org.apache.spark.ml.linalg.{Vector, Vectors}
+//import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
+
 import org.dma.sketchml.ml.util.Maths
 
 trait Loss extends Serializable {
@@ -28,9 +30,15 @@ abstract class L1Loss extends Loss {
 
   override def getRegParam: Double = lambda
 
+  //added to calculate the first norm of vector
+  def firstNorm (data: Vector): Double = {
+    data.map(x => x._2.abs).sum
+  }
+
   override def getReg(w: Vector): Double = {
     if (isL1Reg)
-      Vectors.norm(w, 1) * lambda
+      //Vectors.norm(w, 1) * lambda
+      this.firstNorm(w) * lambda
     else
       0.0
   }
@@ -47,7 +55,8 @@ abstract class L2Loss extends Loss {
 
   override def getReg(w: Vector): Double = {
     if (isL2Reg)
-      Vectors.norm(w, 2) * lambda
+      //Vectors.norm(w, 2) * lambda
+      w.magnitude * lambda
     else
       0.0
   }
