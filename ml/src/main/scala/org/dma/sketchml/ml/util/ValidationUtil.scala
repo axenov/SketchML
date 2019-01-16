@@ -1,13 +1,14 @@
 package org.dma.sketchml.ml.util
 
-import org.apache.spark.ml.linalg.Vector
+import org.apache.flink.ml.math.Vector
+
+
 import org.dma.sketchml.ml.data.DataSet
 import org.dma.sketchml.ml.objective.Loss
 import org.dma.sketchml.sketch.util.Sort
 import org.slf4j.{Logger, LoggerFactory}
 
 object ValidationUtil {
-
   private val logger: Logger = LoggerFactory.getLogger(ValidationUtil.getClass)
 
   def calLossPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int) = {

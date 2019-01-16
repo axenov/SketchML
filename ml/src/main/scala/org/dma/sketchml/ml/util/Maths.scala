@@ -1,6 +1,6 @@
 package org.dma.sketchml.ml.util
 
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
+import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -45,8 +45,8 @@ object Maths {
     require(a.size == b.size, s"Dot between vectors of size ${a.size} and ${b.size}")
     //(a.values, b.values).zipped.map(_*_).sum
     val size = a.size
-    val aValues = a.values
-    val bValues = b.values
+    val aValues = a.data
+    val bValues = b.data
     var dot = 0.0
     for (i <- 0 until size) {
       dot += aValues(i) * bValues(i)
@@ -56,10 +56,12 @@ object Maths {
 
   def dot(a: DenseVector, b: SparseVector): Double = {
     require(a.size == b.size, s"Dot between vectors of size ${a.size} and ${b.size}")
-    val aValues = a.values
+    val aValues = a.data
     val bIndices = b.indices
-    val bValues = b.values
-    val size = b.numActives
+    val bValues = b.data
+
+    //val size = b.numActives
+    val size = b.size
     var dot = 0.0
     for (i <- 0 until size) {
       val ind = bIndices(i)
@@ -73,11 +75,13 @@ object Maths {
   def dot(a: SparseVector, b: SparseVector): Double = {
     require(a.size == b.size, s"Dot between vectors of size ${a.size} and ${b.size}")
     val aIndices = a.indices
-    val aValues = a.values
-    val aNumActives = a.numActives
+    val aValues = a.data
+    //val aNumActives = a.numActives
+    val aNumActives = a.size
     val bIndices = b.indices
-    val bValues = b.values
-    val bNumActives = b.numActives
+    val bValues = b.data
+    //val bNumActives = b.numActives
+    val bNumActives = b.size
     var aOff = 0
     var bOff = 0
     var dot = 0.0
@@ -103,7 +107,10 @@ object Maths {
   def cosine(a: Array[Double], b: Array[Double]): Double = {
     val va = new DenseVector(a)
     val vb = new DenseVector(b)
-    dot(va, vb) / (Vectors.norm(va, 2) * Vectors.norm(vb, 2))
+    //dot(va, vb) / (Vectors.norm(va, 2) * Vectors.norm(vb, 2))
+
+    dot(va, vb) / ((va.magnitude) * (vb.magnitude))
+
   }
 
 }
