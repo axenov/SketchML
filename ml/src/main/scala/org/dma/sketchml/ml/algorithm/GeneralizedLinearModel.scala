@@ -1,5 +1,6 @@
 package org.dma.sketchml.ml.algorithm
 
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
 import org.apache.flink.streaming.api.scala.function.ProcessAllWindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
@@ -95,9 +96,9 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
       .setParallelism(MLConf.PARALLELISM)
       .windowAll(TumblingProcessingTimeWindows.of(Time.seconds(MLConf.WINDOW_PROCESSING_TIME_SECONDS)))
       .trigger(CountTrigger.of(MLConf.WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER))
-      .process(new ComputePartialGradient())
-      // TODO: Change MLConf to something broadcasted here?
-      .map((grad: Gradient, batchSize: Int, objLoss: Double, regLoss: Double) => (Gradient.compress(grad, conf), batchSize, objLoss, regLoss))
+      .process(new ComputePartialGradient())(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
+    // TODO: Change MLConf to something broadcasted here?
+    //      .map((t: (Gradient, Int, Double, Double)) => (Gradient.compress(t._1, conf), t._2, t._3, t._4))(TypeInformation[(Gradient, Int, Double, Double)])
 
     // TODO: Here use 'magic-box' to distribute grad(SHOULD BE COMPRESSED) and probably batchSize, objLoss, regLos
 

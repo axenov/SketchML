@@ -1,7 +1,7 @@
 package org.dma.sketchml.ml.algorithm
 
-import org.apache.spark.ml.linalg.DenseVector
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
+import org.apache.flink.ml.math.DenseVector
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.objective.{Adam, L2LogLoss}
@@ -19,11 +19,9 @@ class LRModel(_conf: MLConf) extends GeneralizedLinearModel(_conf) {
   @transient override protected val logger: Logger = LRModel.logger
 
   override protected def initModel(): Unit = {
-    executors.foreach(_ => {
-      weights = new DenseVector(new Array[Double](bcConf.value.featureNum))
-      optimizer = Adam(bcConf.value)
-      loss = new L2LogLoss(bcConf.value.l2Reg)
-    })
+      weights = new DenseVector(new Array[Double](_conf.featureNum))
+      optimizer = Adam(_conf)
+      loss = new L2LogLoss(_conf.l2Reg)
   }
 
   override def getName: String = LRModel.getName

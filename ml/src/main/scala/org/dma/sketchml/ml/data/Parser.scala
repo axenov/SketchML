@@ -11,7 +11,7 @@ import org.dma.sketchml.ml.util.Maths
 
 object Parser {
   def loadStreamData(input: String, format: String, maxDim: Int, numPartition: Int,
-               negY: Boolean = true)(implicit sc: StreamExecutionEnvironment): DataStream[LabeledData] = {
+                     negY: Boolean = true)(implicit sc: StreamExecutionEnvironment): DataStream[LabeledData] = {
     val parse: (String, Int, Boolean) => LabeledData = format match {
       case Constants.FORMAT_LIBSVM => Parser.parseLibSVM
       case Constants.FORMAT_CSV => Parser.parseCSV
@@ -19,7 +19,7 @@ object Parser {
       case Constants.FORMAT_LIBSVM_SEMICOLONS => Parser.parseLibSVMWithSemicolons
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
-    implicit val typeInfo = TypeInformation.of(classOf[(LabeledData)])
+    implicit val typeInfo: TypeInformation[LabeledData] = TypeInformation.of(classOf[LabeledData])
     sc.readTextFile(input)
       .map { line => parse(line, maxDim, negY) }
       .setParallelism(numPartition)

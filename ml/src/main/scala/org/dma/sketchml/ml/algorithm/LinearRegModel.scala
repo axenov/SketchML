@@ -20,11 +20,11 @@ class LinearRegModel(_conf: MLConf) extends GeneralizedLinearModel(_conf) {
 
   // TODO: How to do that?
   override protected def initModel(): Unit = {
-    executors.foreach(_ => {
-      weights = new DenseVector(new Array[Double](bcConf.value.featureNum))
-      optimizer = Adam(bcConf.value)
-      loss = new L2SquareLoss(bcConf.value.l2Reg)
-    })
+//    executors.foreach(_ => {
+//      weights = new DenseVector(new Array[Double](bcConf.value.featureNum))
+//      optimizer = Adam(bcConf.value)
+//      loss = new L2SquareLoss(bcConf.value.l2Reg)
+//    })
   }
 
   override def getName: String = LinearRegModel.getName

@@ -19,11 +19,11 @@ class SVMModel(_conf: MLConf) extends GeneralizedLinearModel(_conf) {
   @transient override protected val logger: Logger = SVMModel.logger
 
   override protected def initModel(): Unit = {
-    executors.foreach(_ => {
-      weights = new DenseVector(new Array[Double](bcConf.value.featureNum))
-      optimizer = Adam(bcConf.value)
-      loss = new L2HingeLoss(bcConf.value.l2Reg)
-    })
+//    executors.foreach(_ => {
+//      weights = new DenseVector(new Array[Double](bcConf.value.featureNum))
+//      optimizer = Adam(bcConf.value)
+//      loss = new L2HingeLoss(bcConf.value.l2Reg)
+//    })
   }
 
   override def getName: String = SVMModel.getName
