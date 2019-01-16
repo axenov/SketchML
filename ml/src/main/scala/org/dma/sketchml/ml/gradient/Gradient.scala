@@ -1,7 +1,7 @@
 package org.dma.sketchml.ml.gradient
 
 import javax.inject.Singleton
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.flink.ml.math.{Vector, DenseVector, SparseVector}
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind

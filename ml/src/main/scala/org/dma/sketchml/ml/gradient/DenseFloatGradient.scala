@@ -1,6 +1,6 @@
 package org.dma.sketchml.ml.gradient
 
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
+import org.apache.flink.ml.math.{DenseVector, SparseVector}
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.ml.util.Maths
 import org.dma.sketchml.sketch.base.SketchMLException
@@ -65,7 +65,7 @@ class DenseFloatGradient(d: Int, val values: Array[Float]) extends Gradient(d) {
   override def plusBy(zipGrad: ZipGradient): Gradient = plusBy(zipGrad.toAuto)
 
   override def plusBy(dense: DenseVector, x: Double): Gradient = {
-    val v = dense.values
+    val v = dense.data
     val x_ = x.toFloat
     for (i <- 0 until dim)
       values(i) += v(i).toFloat * x_
@@ -74,7 +74,7 @@ class DenseFloatGradient(d: Int, val values: Array[Float]) extends Gradient(d) {
 
   override def plusBy(sparse: SparseVector, x: Double): Gradient = {
     val k = sparse.indices
-    val v = sparse.values
+    val v = sparse.data
     val x_ = x.toFloat
     for (i <- k.indices)
       values(k(i)) += v(i).toFloat * x_

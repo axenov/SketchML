@@ -18,6 +18,7 @@ object LinearRegModel {
 class LinearRegModel(_conf: MLConf) extends GeneralizedLinearModel(_conf) {
   @transient override protected val logger: Logger = LinearRegModel.logger
 
+  // TODO: How to do that?
   override protected def initModel(): Unit = {
     executors.foreach(_ => {
       weights = new DenseVector(new Array[Double](bcConf.value.featureNum))

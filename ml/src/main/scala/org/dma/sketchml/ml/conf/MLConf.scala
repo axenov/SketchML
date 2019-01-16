@@ -85,5 +85,7 @@ case class MLConf(algo: String, input: String, format: String, workerNum: Int,
     GRADIENT_COMPRESSOR_FLOAT, GRADIENT_COMPRESSOR_NONE).contains(compressor),
     throw new SketchMLException(s"Unrecognizable gradient compressor: $compressor"))
 
+
+
 }
 

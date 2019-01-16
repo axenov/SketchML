@@ -1,15 +1,13 @@
 package org.dma.sketchml.ml.algorithm
 
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.ml.math.DenseVector
 import org.apache.flink.streaming.api.scala.function.ProcessAllWindowFunction
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow
 import org.apache.flink.util.Collector
-import org.apache.spark.SparkContext
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.linalg.DenseVector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
 import org.dma.sketchml.ml.gradient.Gradient
@@ -39,19 +37,16 @@ import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
 abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) extends Serializable {
+  @transient protected implicit val sc: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
   @transient protected val logger: Logger = GeneralizedLinearModel.logger
-
-  // TODO: Remove somehow
-  @transient protected implicit val sc: SparkContext = SparkContext.getOrCreate()
-
   @transient protected var dataStream: DataStream[LabeledData] = _
 
   // TODO: How to distribute configuration between all workers?
-  protected val bcConf: Broadcast[MLConf] = sc.broadcast(conf)
+  //  protected val bcConf: Broadcast[MLConf] = sc.broadcast(conf)
 
   def loadData(): Unit = {
     val startTime = System.currentTimeMillis()
-    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)
+    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(sc)
 
     //    executors = dataRdd.mapPartitionsWithIndex((partId, _) => {
     //      val exeId = SparkEnv.get.executorId match {
@@ -101,9 +96,10 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
       .windowAll(TumblingProcessingTimeWindows.of(Time.seconds(MLConf.WINDOW_PROCESSING_TIME_SECONDS)))
       .trigger(CountTrigger.of(MLConf.WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER))
       .process(new ComputePartialGradient())
-      .map((grad: Gradient, batchSize: Int, objLoss: Double, regLoss: Double) => (Gradient.compress(grad, bcConf.value), batchSize, objLoss, regLoss))
+      // TODO: Change MLConf to something broadcasted here?
+      .map((grad: Gradient, batchSize: Int, objLoss: Double, regLoss: Double) => (Gradient.compress(grad, conf), batchSize, objLoss, regLoss))
 
-    // TODO: Here use 'magic-box' distribute grad(SHOULD BE COMPRESSED), batchSize, objLoss, regLos
+    // TODO: Here use 'magic-box' to distribute grad(SHOULD BE COMPRESSED) and probably batchSize, objLoss, regLos
 
     //    for (epoch <- 0 until conf.epochNum) {
     //      logger.info(s"Epoch[$epoch] start training")
@@ -119,50 +115,50 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
     logger.info(s"Time: [${timeElapsed.mkString(", ")}]")
   }
 
-//  protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
-//    val epochStart = System.currentTimeMillis()
-//    var trainLoss = 0.0
-//    // One epoch means training of all batches
-//    for (batch <- 0 until batchNum) {
-//      val batchLoss = trainOneIteration(epoch, batch)
-//      trainLoss += batchLoss
-//    }
-//    val epochCost = System.currentTimeMillis() - epochStart
-//    logger.info(s"Epoch[$epoch] train cost $epochCost ms, loss=${trainLoss / batchNum}")
-//    // Result of one epoch training is an average of batches training
-//    trainLoss / batchNum
-//  }
+  //  protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
+  //    val epochStart = System.currentTimeMillis()
+  //    var trainLoss = 0.0
+  //    // One epoch means training of all batches
+  //    for (batch <- 0 until batchNum) {
+  //      val batchLoss = trainOneIteration(epoch, batch)
+  //      trainLoss += batchLoss
+  //    }
+  //    val epochCost = System.currentTimeMillis() - epochStart
+  //    logger.info(s"Epoch[$epoch] train cost $epochCost ms, loss=${trainLoss / batchNum}")
+  //    // Result of one epoch training is an average of batches training
+  //    trainLoss / batchNum
+  //  }
 
-//  protected def trainOneIteration(epoch: Int, batch: Int): Double = {
-//    val batchStart = System.currentTimeMillis()
-//    // train one batch
-//    val batchLoss = computeGradient(epoch, batch)
-//    aggregateAndUpdate(epoch, batch)
-//    logger.info(s"Epoch[$epoch] batch $batch train cost "
-//      + s"${System.currentTimeMillis() - batchStart} ms")
-//    batchLoss
-//  }
+  //  protected def trainOneIteration(epoch: Int, batch: Int): Double = {
+  //    val batchStart = System.currentTimeMillis()
+  //    // train one batch
+  //    val batchLoss = computeGradient(epoch, batch)
+  //    aggregateAndUpdate(epoch, batch)
+  //    logger.info(s"Epoch[$epoch] batch $batch train cost "
+  //      + s"${System.currentTimeMillis() - batchStart} ms")
+  //    batchLoss
+  //  }
 
-//  protected def computeGradient(epoch: Int, batch: Int): Double = {
-//    val miniBatchGDStart = System.currentTimeMillis()
-//    val (batchSize, objLoss, regLoss) = executors.aggregate(0, 0.0, 0.0)(
-//      seqOp = (_, _) => {
-//        // each of the executors computes gradient descent of its own piece of the data set
-//        val (grad, batchSize, objLoss, regLoss) =
-//          optimizer.miniBatchGradientDescent(weights, trainData, loss)
-//        // each executor has its own gradient value based on its partition of data
-//        gradient = grad
-//        (batchSize, objLoss, regLoss)
-//      },
-//      combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3)
-//    )
-//    // why regLess / conf.workerNum, where is this distributed among workers?
-//    val batchLoss = objLoss / batchSize + regLoss / conf.workerNum
-//    logger.info(s"Epoch[$epoch] batch $batch compute gradient cost "
-//      + s"${System.currentTimeMillis() - miniBatchGDStart} ms, "
-//      + s"batch size=$batchSize, batch loss=$batchLoss")
-//    batchLoss
-//  }
+  //  protected def computeGradient(epoch: Int, batch: Int): Double = {
+  //    val miniBatchGDStart = System.currentTimeMillis()
+  //    val (batchSize, objLoss, regLoss) = executors.aggregate(0, 0.0, 0.0)(
+  //      seqOp = (_, _) => {
+  //        // each of the executors computes gradient descent of its own piece of the data set
+  //        val (grad, batchSize, objLoss, regLoss) =
+  //          optimizer.miniBatchGradientDescent(weights, trainData, loss)
+  //        // each executor has its own gradient value based on its partition of data
+  //        gradient = grad
+  //        (batchSize, objLoss, regLoss)
+  //      },
+  //      combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3)
+  //    )
+  //    // why regLess / conf.workerNum, where is this distributed among workers?
+  //    val batchLoss = objLoss / batchSize + regLoss / conf.workerNum
+  //    logger.info(s"Epoch[$epoch] batch $batch compute gradient cost "
+  //      + s"${System.currentTimeMillis() - miniBatchGDStart} ms, "
+  //      + s"batch size=$batchSize, batch loss=$batchLoss")
+  //    batchLoss
+  //  }
 
   // TODO: Method similar to aggregateAndUpdate, but related to the 'magic-box'
   // TODO: it should be invoked on new gradient appearing
@@ -174,53 +170,53 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
     optimizer.update(gradient, weights)
   }
 
-//  protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
-//    val aggrStart = System.currentTimeMillis()
-//    // Based on number of features, sum partial compressed gradients to one gradient
-//    // result is dense or sparse gradient NOT SKETCH
-//    val sum = Gradient.sum(
-//      conf.featureNum,
-//      // Compression before sending gradients to driver
-//      executors.map(_ => Gradient.compress(gradient, bcConf.value)).collect()
-//    )
-//
-//    // Compressing summed up dense/sparse gradient to sketch before sending it to all workers
-//    val grad = Gradient.compress(sum, conf)
-//
-//    // Since we summed up partial gradients into one, we take average values.
-//    // no. of partial gradients = no. of workers =? no. of executors
-//    grad.timesBy(1.0 / conf.workerNum)
-//    logger.info(s"Epoch[$epoch] batch $batch aggregate gradients cost "
-//      + s"${System.currentTimeMillis() - aggrStart} ms")
-//
-//    val updateStart = System.currentTimeMillis()
-//    val bcGrad = sc.broadcast(grad)
-//    // Each executor updates weights based on the summed up and compressed gradient
-//    // Communication between driver and executor is via compressed gradient
-//    // Updating weights values is based on decompressed one
-//    executors.foreach(_ => optimizer.update(bcGrad.value, weights))
-//    logger.info(s"Epoch[$epoch] batch $batch update weights cost "
-//      + s"${System.currentTimeMillis() - updateStart} ms")
-//  }
-//
-//  // TODO: How to get validData? Assign some part of each window randomly? Will it work?
-//  protected def validate(epoch: Int): Double = {
-//    val validStart = System.currentTimeMillis()
-//    val (sumLoss, truePos, trueNeg, falsePos, falseNeg, validNum) =
-//      executors.aggregate((0.0, 0, 0, 0, 0, 0))(
-//        seqOp = (_, _) => ValidationUtil.calLossPrecision(weights, validData, loss),
-//        combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3,
-//          c1._4 + c2._4, c1._5 + c2._5, c1._6 + c2._6)
-//      )
-//    val validLoss = sumLoss / validNum
-//    val precision = 1.0 * (truePos + trueNeg) / validNum
-//    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
-//    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
-//    logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
-//      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
-//      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-//    validLoss
-//  }
+  //  protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
+  //    val aggrStart = System.currentTimeMillis()
+  //    // Based on number of features, sum partial compressed gradients to one gradient
+  //    // result is dense or sparse gradient NOT SKETCH
+  //    val sum = Gradient.sum(
+  //      conf.featureNum,
+  //      // Compression before sending gradients to driver
+  //      executors.map(_ => Gradient.compress(gradient, bcConf.value)).collect()
+  //    )
+  //
+  //    // Compressing summed up dense/sparse gradient to sketch before sending it to all workers
+  //    val grad = Gradient.compress(sum, conf)
+  //
+  //    // Since we summed up partial gradients into one, we take average values.
+  //    // no. of partial gradients = no. of workers =? no. of executors
+  //    grad.timesBy(1.0 / conf.workerNum)
+  //    logger.info(s"Epoch[$epoch] batch $batch aggregate gradients cost "
+  //      + s"${System.currentTimeMillis() - aggrStart} ms")
+  //
+  //    val updateStart = System.currentTimeMillis()
+  //    val bcGrad = sc.broadcast(grad)
+  //    // Each executor updates weights based on the summed up and compressed gradient
+  //    // Communication between driver and executor is via compressed gradient
+  //    // Updating weights values is based on decompressed one
+  //    executors.foreach(_ => optimizer.update(bcGrad.value, weights))
+  //    logger.info(s"Epoch[$epoch] batch $batch update weights cost "
+  //      + s"${System.currentTimeMillis() - updateStart} ms")
+  //  }
+  //
+  //  // TODO: How to get validData? Assign some part of each window randomly? Will it work?
+  //  protected def validate(epoch: Int): Double = {
+  //    val validStart = System.currentTimeMillis()
+  //    val (sumLoss, truePos, trueNeg, falsePos, falseNeg, validNum) =
+  //      executors.aggregate((0.0, 0, 0, 0, 0, 0))(
+  //        seqOp = (_, _) => ValidationUtil.calLossPrecision(weights, validData, loss),
+  //        combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3,
+  //          c1._4 + c2._4, c1._5 + c2._5, c1._6 + c2._6)
+  //      )
+  //    val validLoss = sumLoss / validNum
+  //    val precision = 1.0 * (truePos + trueNeg) / validNum
+  //    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
+  //    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+  //    logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
+  //      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
+  //      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+  //    validLoss
+  //  }
 
   def getName: String
 
