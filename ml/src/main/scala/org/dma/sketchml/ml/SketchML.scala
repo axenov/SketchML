@@ -1,15 +1,9 @@
 package org.dma.sketchml.ml
 
-
-//import org.dma.sketchml.ml.algorithm._
-//import org.dma.sketchml.ml.conf.MLConf
-// import org.apache.flink.api.java.utils.ParameterTool
-
 import org.apache.flink.api.java.utils.ParameterTool
-import org.dma.sketchml.ml.data.Parser
-import org.dma.sketchml.ml.common.Constants
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
-import org.dma.sketchml.ml.algorithm.{LRModel, LinearRegModel, SVMModel}
+import org.dma.sketchml.ml.algorithm.LRModel
+import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 
 

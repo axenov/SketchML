@@ -97,20 +97,20 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
       .windowAll(TumblingProcessingTimeWindows.of(Time.seconds(MLConf.WINDOW_PROCESSING_TIME_SECONDS)))
       .trigger(CountTrigger.of(MLConf.WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER))
       .process(new ComputePartialGradient())(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
-    // TODO: Change MLConf to something broadcasted here?
-    //      .map((t: (Gradient, Int, Double, Double)) => (Gradient.compress(t._1, conf), t._2, t._3, t._4))(TypeInformation[(Gradient, Int, Double, Double)])
+      // TODO: Change MLConf to something broadcasted here?
+      .map((t: (Gradient, Int, Double, Double)) => (Gradient.compress(t._1, conf), t._2, t._3, t._4))(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
 
-    // TODO: Here use 'magic-box' to distribute grad(SHOULD BE COMPRESSED) and probably batchSize, objLoss, regLos
+      // TODO: Here use 'magic-box' to distribute grad(SHOULD BE COMPRESSED) and probably batchSize, objLoss, regLos
 
-    //    for (epoch <- 0 until conf.epochNum) {
-    //      logger.info(s"Epoch[$epoch] start training")
-    //      trainLosses += trainOneEpoch(epoch, batchNum)
-    //      validLosses += validate(epoch)
-    //      timeElapsed += System.currentTimeMillis() - startTime
-    //      logger.info(s"Epoch[$epoch] done, ${timeElapsed.last} ms elapsed")
-    //    }
+      //    for (epoch <- 0 until conf.epochNum) {
+      //      logger.info(s"Epoch[$epoch] start training")
+      //      trainLosses += trainOneEpoch(epoch, batchNum)
+      //      validLosses += validate(epoch)
+      //      timeElapsed += System.currentTimeMillis() - startTime
+      //      logger.info(s"Epoch[$epoch] done, ${timeElapsed.last} ms elapsed")
+      //    }
 
-    logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
+      logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
     logger.info(s"Train loss: [${trainLosses.mkString(", ")}]")
     logger.info(s"Valid loss: [${validLosses.mkString(", ")}]")
     logger.info(s"Time: [${timeElapsed.mkString(", ")}]")
