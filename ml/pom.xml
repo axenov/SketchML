@@ -38,7 +38,6 @@
             <groupId>com.twitter</groupId>
             <artifactId>chill_2.11</artifactId>
             <version>0.8.0</version>
-            <scope>test</scope>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.twitter/chill-java -->
@@ -46,7 +45,6 @@
             <groupId>com.twitter</groupId>
             <artifactId>chill-java</artifactId>
             <version>0.8.0</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

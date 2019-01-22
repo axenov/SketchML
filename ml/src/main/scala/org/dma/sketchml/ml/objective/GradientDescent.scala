@@ -23,9 +23,10 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   def miniBatchGradientDescent(weight: DenseVector, dataSet: DataSet, loss: Loss): (Gradient, Int, Double, Double) = {
     val startTime = System.currentTimeMillis()
 
+    // WARNING: I changed logic here, so window size == batch size!
     val denseGrad = new DenseDoubleGradient(dim)
     var objLoss = 0.0
-    val batchSize = (dataSet.size * batchSpRatio).toInt
+    val batchSize = dataSet.size
     for (i <- 0 until batchSize) {
       val ins = dataSet.loopingRead
       val pre = loss.predict(weight, ins.feature)
@@ -46,7 +47,9 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       s"cost ${System.currentTimeMillis() - startTime} ms, "
       + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
     batch += 1
-    if (batch == batchNum) { epoch += 1; batch = 0 }
+    if (batch == batchNum) {
+      epoch += 1; batch = 0
+    }
     (grad, batchSize, objLoss, regLoss)
   }
 

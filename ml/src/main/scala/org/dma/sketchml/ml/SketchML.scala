@@ -8,22 +8,21 @@ import org.dma.sketchml.ml.conf.MLConf
 
 
 object SketchML extends App {
-
-  @transient protected implicit val sc: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
-
   override def main(args: Array[String]): Unit = {
+    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     //This allows getting arguments like --input hdfs:///mydata --elements 42 from the command line.
     val parameters: ParameterTool = ParameterTool.fromArgs(args)
     val mlConf = MLConf(parameters)
+    env.setParallelism(mlConf.workerNum)
     val model = mlConf.algo match {
-      case Constants.ML_LOGISTIC_REGRESSION => LRModel(mlConf)
-//      case Constants.ML_SUPPORT_VECTOR_MACHINE => SVMModel(mlConf)
-//      case Constants.ML_LINEAR_REGRESSION => LinearRegModel(mlConf)
+      case Constants.ML_LOGISTIC_REGRESSION => LRModel(mlConf, env)
+      //      case Constants.ML_SUPPORT_VECTOR_MACHINE => SVMModel(mlConf)
+      //      case Constants.ML_LINEAR_REGRESSION => LinearRegModel(mlConf)
       case _ => throw new UnknownError("Unsupported algorithm: " + mlConf.algo)
     }
 
     model.loadData()
     model.train()
-
-    }
+    env.execute("SketchML on data streams")
+  }
 }

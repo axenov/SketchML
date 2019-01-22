@@ -20,9 +20,7 @@ object Parser {
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
     implicit val typeInfo: TypeInformation[LabeledData] = TypeInformation.of(classOf[LabeledData])
-    sc.readTextFile(input)
-      .map { line => parse(line, maxDim, negY) }
-      .setParallelism(numPartition)
+    sc.readTextFile(input).map { line => parse(line, maxDim, negY) }
   }
 
   def parseLibSVM(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {

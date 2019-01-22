@@ -45,9 +45,8 @@ object MLConf {
   val DEFAULT_FIXED_POINT_BIT_NUM = 8
 
   // FLINK
-  val WINDOW_PROCESSING_TIME_SECONDS: Int = 1
-  val WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER: Int = 100
-  val PARALLELISM: Int = 1
+  val WINDOW_SIZE: String = "flink.sketchml.window.size"
+  val DEFAULT_WINDOW_SIZE: Int = 100
 
   def apply(parameters: ParameterTool): MLConf = MLConf(
     parameters.get(ML_ALGORITHM),
@@ -67,16 +66,17 @@ object MLConf {
     parameters.getInt(SKETCH_MINMAXSKETCH_GROUP_NUM, DEFAULT_SKETCH_MINMAXSKETCH_GROUP_NUM),
     parameters.getInt(SKETCH_MINMAXSKETCH_ROW_NUM, DEFAULT_SKETCH_MINMAXSKETCH_ROW_NUM),
     parameters.getDouble(SKETCH_MINMAXSKETCH_COL_RATIO, DEFAULT_SKETCH_MINMAXSKETCH_COL_RATIO),
-    parameters.getInt(FIXED_POINT_BIT_NUM, DEFAULT_FIXED_POINT_BIT_NUM)
+    parameters.getInt(FIXED_POINT_BIT_NUM, DEFAULT_FIXED_POINT_BIT_NUM),
+    parameters.getInt(WINDOW_SIZE, DEFAULT_WINDOW_SIZE)
   )
 
 }
 
 case class MLConf(algo: String, input: String, format: String, workerNum: Int,
-                  featureNum: Int, validRatio: Double, epochNum: Int,batchSpRatio: Double,
+                  featureNum: Int, validRatio: Double, epochNum: Int, batchSpRatio: Double,
                   learnRate: Double, learnDecay: Double, l1Reg: Double, l2Reg: Double,
                   compressor: String, quantBinNum: Int, sketchGroupNum: Int,
-                  sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int) {
+                  sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int, windowSize: Int) {
   require(Seq(ML_LOGISTIC_REGRESSION, ML_SUPPORT_VECTOR_MACHINE, ML_LINEAR_REGRESSION).contains(algo),
     throw new SketchMLException(s"Unsupported algorithm: $algo"))
   require(Seq(FORMAT_LIBSVM, FORMAT_CSV, FORMAT_DUMMY, FORMAT_LIBSVM_SEMICOLONS).contains(format),
@@ -84,7 +84,6 @@ case class MLConf(algo: String, input: String, format: String, workerNum: Int,
   require(Seq(GRADIENT_COMPRESSOR_SKETCH, GRADIENT_COMPRESSOR_FIXED_POINT, GRADIENT_COMPRESSOR_ZIP,
     GRADIENT_COMPRESSOR_FLOAT, GRADIENT_COMPRESSOR_NONE).contains(compressor),
     throw new SketchMLException(s"Unrecognizable gradient compressor: $compressor"))
-
 
 
 }

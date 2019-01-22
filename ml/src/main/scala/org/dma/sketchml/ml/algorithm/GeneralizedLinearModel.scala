@@ -1,13 +1,17 @@
 package org.dma.sketchml.ml.algorithm
 
+import java.lang
+
+import org.apache.flink.api.common.state.ReducingState
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.scala.function.ProcessAllWindowFunction
+import org.apache.flink.streaming.api.functions.ProcessFunction
+import org.apache.flink.streaming.api.scala.function.{ProcessAllWindowFunction, ProcessWindowFunction}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
+import org.apache.flink.streaming.api.windowing.assigners.{GlobalWindows, TumblingProcessingTimeWindows}
 import org.apache.flink.streaming.api.windowing.time.Time
-import org.apache.flink.streaming.api.windowing.triggers.CountTrigger
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow
+import org.apache.flink.streaming.api.windowing.triggers.{CountTrigger, Trigger, TriggerResult}
+import org.apache.flink.streaming.api.windowing.windows.{GlobalWindow, TimeWindow}
 import org.apache.flink.util.Collector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
@@ -16,6 +20,7 @@ import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 object GeneralizedLinearModel {
   private val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
@@ -37,17 +42,16 @@ object GeneralizedLinearModel {
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
-abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) extends Serializable {
-  @transient protected implicit val sc: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
+abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient protected val env: StreamExecutionEnvironment) extends Serializable {
   @transient protected val logger: Logger = GeneralizedLinearModel.logger
   @transient protected var dataStream: DataStream[LabeledData] = _
 
   // TODO: How to distribute configuration between all workers?
-  //  protected val bcConf: Broadcast[MLConf] = sc.broadcast(conf)
+  //  protected val bcConf: Broadcast[MLConf] = env.broadcast(conf)
 
   def loadData(): Unit = {
     val startTime = System.currentTimeMillis()
-    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(sc)
+    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(env)
     logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 
@@ -64,25 +68,16 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
     val timeElapsed = ArrayBuffer[Long](conf.epochNum)
     //    val batchNum = Math.ceil(1.0 / conf.batchSpRatio).toInt
 
-    val partialGradientAndLoss: DataStream[(Gradient, Int, Double, Double)] = dataStream
-      .setParallelism(MLConf.PARALLELISM)
-      .windowAll(TumblingProcessingTimeWindows.of(Time.seconds(MLConf.WINDOW_PROCESSING_TIME_SECONDS)))
-      .trigger(CountTrigger.of(MLConf.WINDOW_SIZE_TRIGGER_ELEMENTS_NUMBER))
-      .process(new ComputePartialGradient())(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
-      // TODO: Change MLConf to something broadcasted here?
+
+    dataStream
+      .countWindowAll(conf.windowSize)
+      .process(new ComputePartialGradient)(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
       .map((t: (Gradient, Int, Double, Double)) => (Gradient.compress(t._1, conf), t._2, t._3, t._4))(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
+      .process(new SendGradient)(TypeInformation.of(classOf[Unit]))
+      .process(new GetNewGradient)(TypeInformation.of(classOf[Gradient]))
+      .process(new UpdateWeights)(TypeInformation.of(classOf[Unit]))
 
-      // TODO: Here use 'magic-box' to distribute grad(SHOULD BE COMPRESSED) and probably batchSize, objLoss, regLos
-
-      //    for (epoch <- 0 until conf.epochNum) {
-      //      logger.info(s"Epoch[$epoch] start training")
-      //      trainLosses += trainOneEpoch(epoch, batchNum)
-      //      validLosses += validate(epoch)
-      //      timeElapsed += System.currentTimeMillis() - startTime
-      //      logger.info(s"Epoch[$epoch] done, ${timeElapsed.last} ms elapsed")
-      //    }
-
-      logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
+    logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
     logger.info(s"Train loss: [${trainLosses.mkString(", ")}]")
     logger.info(s"Valid loss: [${validLosses.mkString(", ")}]")
     logger.info(s"Time: [${timeElapsed.mkString(", ")}]")
@@ -195,7 +190,7 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
 
 }
 
-class ComputePartialGradient extends ProcessAllWindowFunction[LabeledData, (Gradient, Int, Double, Double), TimeWindow] {
+class ComputePartialGradient extends ProcessAllWindowFunction[LabeledData, (Gradient, Int, Double, Double), GlobalWindow] {
 
   override def process(context: Context, elements: Iterable[LabeledData], out: Collector[(Gradient, Int, Double, Double)]): Unit = {
     trainData = new DataSet
@@ -207,11 +202,32 @@ class ComputePartialGradient extends ProcessAllWindowFunction[LabeledData, (Grad
     val (grad, batchSize, objLoss, regLoss) =
       optimizer.miniBatchGradientDescent(weights, trainData, loss)
 
-    // Should it be done like that... should there be one gradient stored which is being constantly updated?
-    // 'grad' is a brand new gradient
     gradient = grad
 
     out.collect((grad, batchSize, objLoss, regLoss))
+  }
+
+}
+
+class SendGradient extends ProcessFunction[(Gradient, Int, Double, Double), Unit] {
+  override def processElement(value: (Gradient, Int, Double, Double), ctx: ProcessFunction[(Gradient, Int, Double, Double), Unit]#Context, out: Collector[Unit]): Unit = {
+    // TODO: implement Atomix communication
+  }
+}
+
+class GetNewGradient extends ProcessFunction[Unit, Gradient] {
+  override def processElement(value: Unit, ctx: ProcessFunction[Unit, Gradient]#Context, out: Collector[Gradient]): Unit = {
+    // Get new gradient
+    // TODO: Implement Atomix communication
+    // pass it to the next stream operator
+    // out.collect()
+    out.collect(gradient)
+  }
+}
+
+class UpdateWeights extends ProcessFunction[Gradient, Unit] {
+  override def processElement(value: Gradient, ctx: ProcessFunction[Gradient, Unit]#Context, out: Collector[Unit]): Unit = {
+    optimizer.update(value, weights)
   }
 }
 
