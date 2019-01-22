@@ -48,34 +48,6 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
   def loadData(): Unit = {
     val startTime = System.currentTimeMillis()
     dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(sc)
-
-    //    executors = dataRdd.mapPartitionsWithIndex((partId, _) => {
-    //      val exeId = SparkEnv.get.executorId match {
-    //        case "driver" => partId
-    //        case exeStr => exeStr.toInt
-    //      }
-    //      Seq(exeId).iterator
-    //    }, preservesPartitioning = true)
-
-    // Each executor has its own set of train and valid data
-    //    val (trainDataNum, validDataNum) = dataStream.mapPartitions(iterator => {
-    //      trainData = new DataSet
-    //      validData = new DataSet
-    //      while (iterator.hasNext) {
-    //        if (Random.nextDouble() > bcConf.value.validRatio)
-    //          trainData += iterator.next()
-    //        else
-    //          validData += iterator.next()
-    //      }
-    //      Seq((trainData.size, validData.size)).iterator
-    //    }, preservesPartitioning = true)
-    //      .reduce((c1, c2) => (c1._1 + c2._1, c1._2 + c2._2))
-    //val rdds = dataRdd.randomSplit(Array(1.0 - validRatio, validRatio))
-    //val trainRdd = rdds(0).persist(StorageLevel.MEMORY_AND_DISK)
-    //val validRdd = rdds(1).persist(StorageLevel.MEMORY_AND_DISK)
-    //val trainDataNum = trainRdd.count().toInt
-    //val validDataNum = validRdd.count().toInt
-    //    dataStream.unpersist()
     logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 

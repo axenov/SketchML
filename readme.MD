@@ -1,0 +1,2 @@
+To run the program, you should pass AT LEAST these parameters:
+--flink.sketchml.input.path path_to_file --flink.sketchml.worker.num number_of_workers --flink.sketchml.feature.num number_of_features --flink.sketchml.algo LogisticRegression --flink.sketchml.input.format (csv|libsvm|dummy|libsvmSemicolons)
