@@ -1,19 +1,20 @@
 package org.dma.sketchml.ml.algorithm
 
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{SparkContext, SparkEnv}
-import org.dma.sketchml.ml.data.{DataSet, Parser}
+import org.apache.flink.api.common.functions.MapFunction
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.ml.math.DenseVector
+import org.apache.flink.streaming.api.scala.function.AllWindowFunction
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
+import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
+import org.apache.flink.util.Collector
 import org.dma.sketchml.ml.conf.MLConf
+import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
 import org.dma.sketchml.ml.gradient.Gradient
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.util.ValidationUtil
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object GeneralizedLinearModel {
   private val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
@@ -32,50 +33,20 @@ object GeneralizedLinearModel {
 
 }
 
-import GeneralizedLinearModel.Model._
-import GeneralizedLinearModel.Data._
+import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
+import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
-abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) extends Serializable {
+abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient protected val env: StreamExecutionEnvironment) extends Serializable {
   @transient protected val logger: Logger = GeneralizedLinearModel.logger
+  @transient protected var dataStream: DataStream[LabeledData] = _
 
-  @transient protected implicit val sc: SparkContext = SparkContext.getOrCreate()
-  @transient protected var executors: RDD[Int] = _
-  protected val bcConf: Broadcast[MLConf] = sc.broadcast(conf)
+  // TODO: How to distribute configuration between all workers?
+  //  protected val bcConf: Broadcast[MLConf] = env.broadcast(conf)
 
   def loadData(): Unit = {
     val startTime = System.currentTimeMillis()
-    val dataRdd = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)
-      .persist(StorageLevel.MEMORY_AND_DISK)
-    executors = dataRdd.mapPartitionsWithIndex((partId, _) => {
-      val exeId = SparkEnv.get.executorId match {
-        case "driver" => partId
-        case exeStr => exeStr.toInt
-      }
-      Seq(exeId).iterator
-    }, preservesPartitioning = true)
-
-    // Each executor has its own set of train and valid data
-    val (trainDataNum, validDataNum) = dataRdd.mapPartitions(iterator => {
-      trainData = new DataSet
-      validData = new DataSet
-      while (iterator.hasNext) {
-        if (Random.nextDouble() > bcConf.value.validRatio)
-          trainData += iterator.next()
-        else
-
-          validData += iterator.next()
-      }
-      Seq((trainData.size, validData.size)).iterator
-    }, preservesPartitioning = true)
-      .reduce((c1, c2) => (c1._1 + c2._1, c1._2 + c2._2))
-    //val rdds = dataRdd.randomSplit(Array(1.0 - validRatio, validRatio))
-    //val trainRdd = rdds(0).persist(StorageLevel.MEMORY_AND_DISK)
-    //val validRdd = rdds(1).persist(StorageLevel.MEMORY_AND_DISK)
-    //val trainDataNum = trainRdd.count().toInt
-    //val validDataNum = validRdd.count().toInt
-    dataRdd.unpersist()
-    logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms, " +
-      s"$trainDataNum train data, $validDataNum valid data")
+    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(env)
+    logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 
   protected def initModel(): Unit
@@ -89,115 +60,182 @@ abstract class GeneralizedLinearModel(@transient protected val conf: MLConf) ext
     val trainLosses = ArrayBuffer[Double](conf.epochNum)
     val validLosses = ArrayBuffer[Double](conf.epochNum)
     val timeElapsed = ArrayBuffer[Long](conf.epochNum)
-    val batchNum = Math.ceil(1.0 / conf.batchSpRatio).toInt
-    for (epoch <- 0 until conf.epochNum) {
-      logger.info(s"Epoch[$epoch] start training")
-      trainLosses += trainOneEpoch(epoch, batchNum)
-      validLosses += validate(epoch)
-      timeElapsed += System.currentTimeMillis() - startTime
-      logger.info(s"Epoch[$epoch] done, ${timeElapsed.last} ms elapsed")
-    }
+    //    val batchNum = Math.ceil(1.0 / conf.batchSpRatio).toInt
 
-    logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
-    logger.info(s"Train loss: [${trainLosses.mkString(", ")}]")
-    logger.info(s"Valid loss: [${validLosses.mkString(", ")}]")
-    logger.info(s"Time: [${timeElapsed.mkString(", ")}]")
+
+    dataStream
+      .countWindowAll(conf.windowSize)
+      .apply(new ComputePartialGradient)(TypeInformation.of(classOf[(Gradient, DataSet)]))
+      .map(new ValidateWeightsOnNewWindow)(TypeInformation.of(classOf[Gradient]))
+      .map((t: Gradient) => Gradient.compress(t, conf))(TypeInformation.of(classOf[Gradient]))
+      .map(new SendGradient)(TypeInformation.of(classOf[Gradient]))
+      .map(new GetNewGradient)(TypeInformation.of(classOf[Gradient]))
+      .map(new UpdateWeights)(TypeInformation.of(classOf[Unit]))
   }
 
-  protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
-    val epochStart = System.currentTimeMillis()
-    var trainLoss = 0.0
-    // One epoch means training of all batches
-    for (batch <- 0 until batchNum) {
-      val batchLoss = trainOneIteration(epoch, batch)
-      trainLoss += batchLoss
-    }
-    val epochCost = System.currentTimeMillis() - epochStart
-    logger.info(s"Epoch[$epoch] train cost $epochCost ms, loss=${trainLoss / batchNum}")
-    // Result of one epoch training is an average of batches training
-    trainLoss / batchNum
-  }
+  //  protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
+  //    val epochStart = System.currentTimeMillis()
+  //    var trainLoss = 0.0
+  //    // One epoch means training of all batches
+  //    for (batch <- 0 until batchNum) {
+  //      val batchLoss = trainOneIteration(epoch, batch)
+  //      trainLoss += batchLoss
+  //    }
+  //    val epochCost = System.currentTimeMillis() - epochStart
+  //    logger.info(s"Epoch[$epoch] train cost $epochCost ms, loss=${trainLoss / batchNum}")
+  //    // Result of one epoch training is an average of batches training
+  //    trainLoss / batchNum
+  //  }
 
-  protected def trainOneIteration(epoch: Int, batch: Int): Double = {
-    val batchStart = System.currentTimeMillis()
-    // train one batch
-    val batchLoss = computeGradient(epoch, batch)
-    aggregateAndUpdate(epoch, batch)
-    logger.info(s"Epoch[$epoch] batch $batch train cost "
-      + s"${System.currentTimeMillis() - batchStart} ms")
-    batchLoss
-  }
+  //  protected def trainOneIteration(epoch: Int, batch: Int): Double = {
+  //    val batchStart = System.currentTimeMillis()
+  //    // train one batch
+  //    val batchLoss = computeGradient(epoch, batch)
+  //    aggregateAndUpdate(epoch, batch)
+  //    logger.info(s"Epoch[$epoch] batch $batch train cost "
+  //      + s"${System.currentTimeMillis() - batchStart} ms")
+  //    batchLoss
+  //  }
 
-  protected def computeGradient(epoch: Int, batch: Int): Double = {
-    val miniBatchGDStart = System.currentTimeMillis()
-    val (batchSize, objLoss, regLoss) = executors.aggregate(0, 0.0, 0.0)(
-      seqOp = (_, _) => {
-        // each of the executors computes gradient descent of its own piece of the data set
-        val (grad, batchSize, objLoss, regLoss) =
-          optimizer.miniBatchGradientDescent(weights, trainData, loss)
-        // each executor has its own gradient value based on its partition of data
-        gradient = grad
-        (batchSize, objLoss, regLoss)
-      },
-      combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3)
-    )
-    // why regLess / conf.workerNum, where is this distributed among workers?
-    val batchLoss = objLoss / batchSize + regLoss / conf.workerNum
-    logger.info(s"Epoch[$epoch] batch $batch compute gradient cost "
-      + s"${System.currentTimeMillis() - miniBatchGDStart} ms, "
-      + s"batch size=$batchSize, batch loss=$batchLoss")
-    batchLoss
-  }
+  //  protected def computeGradient(epoch: Int, batch: Int): Double = {
+  //    val miniBatchGDStart = System.currentTimeMillis()
+  //    val (batchSize, objLoss, regLoss) = executors.aggregate(0, 0.0, 0.0)(
+  //      seqOp = (_, _) => {
+  //        // each of the executors computes gradient descent of its own piece of the data set
+  //        val (grad, batchSize, objLoss, regLoss) =
+  //          optimizer.miniBatchGradientDescent(weights, trainData, loss)
+  //        // each executor has its own gradient value based on its partition of data
+  //        gradient = grad
+  //        (batchSize, objLoss, regLoss)
+  //      },
+  //      combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3)
+  //    )
+  //    // why regLess / conf.workerNum, where is this distributed among workers?
+  //    val batchLoss = objLoss / batchSize + regLoss / conf.workerNum
+  //    logger.info(s"Epoch[$epoch] batch $batch compute gradient cost "
+  //      + s"${System.currentTimeMillis() - miniBatchGDStart} ms, "
+  //      + s"batch size=$batchSize, batch loss=$batchLoss")
+  //    batchLoss
+  //  }
 
-  protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
-    val aggrStart = System.currentTimeMillis()
-    // Based on number of features, sum partial compressed gradients to one gradient
-    // result is dense or sparse gradient NOT SKETCH
-    val sum = Gradient.sum(
-      conf.featureNum,
-      // Compression before sending gradients to driver
-      executors.map(_ => Gradient.compress(gradient, bcConf.value)).collect()
-    )
-
-    // Compressing summed up dense/sparse gradient to sketch before sending it to all workers
-    val grad = Gradient.compress(sum, conf)
-
-    // Since we summed up partial gradients into one, we take average values.
-    // no. of partial gradients = no. of workers =? no. of executors
-    grad.timesBy(1.0 / conf.workerNum)
-    logger.info(s"Epoch[$epoch] batch $batch aggregate gradients cost "
-      + s"${System.currentTimeMillis() - aggrStart} ms")
-
-    val updateStart = System.currentTimeMillis()
-    val bcGrad = sc.broadcast(grad)
-    // Each executor updates weights based on the summed up and compressed gradient
-    // Communication between driver and executor is via compressed gradient
-    // Updating weights values is based on decompressed one
-    executors.foreach(_ => optimizer.update(bcGrad.value, weights))
-    logger.info(s"Epoch[$epoch] batch $batch update weights cost "
-      + s"${System.currentTimeMillis() - updateStart} ms")
-  }
-
-  protected def validate(epoch: Int): Double = {
-    val validStart = System.currentTimeMillis()
-    val (sumLoss, truePos, trueNeg, falsePos, falseNeg, validNum) =
-      executors.aggregate((0.0, 0, 0, 0, 0, 0))(
-        seqOp = (_, _) => ValidationUtil.calLossPrecision(weights, validData, loss),
-        combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3,
-          c1._4 + c2._4, c1._5 + c2._5, c1._6 + c2._6)
-      )
-    val validLoss = sumLoss / validNum
-    val precision = 1.0 * (truePos + trueNeg) / validNum
-    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
-    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
-    logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
-      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
-      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    validLoss
-  }
+  //  protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
+  //    val aggrStart = System.currentTimeMillis()
+  //    // Based on number of features, sum partial compressed gradients to one gradient
+  //    // result is dense or sparse gradient NOT SKETCH
+  //    val sum = Gradient.sum(
+  //      conf.featureNum,
+  //      // Compression before sending gradients to driver
+  //      executors.map(_ => Gradient.compress(gradient, bcConf.value)).collect()
+  //    )
+  //
+  //    // Compressing summed up dense/sparse gradient to sketch before sending it to all workers
+  //    val grad = Gradient.compress(sum, conf)
+  //
+  //    // Since we summed up partial gradients into one, we take average values.
+  //    // no. of partial gradients = no. of workers =? no. of executors
+  //    grad.timesBy(1.0 / conf.workerNum)
+  //    logger.info(s"Epoch[$epoch] batch $batch aggregate gradients cost "
+  //      + s"${System.currentTimeMillis() - aggrStart} ms")
+  //
+  //    val updateStart = System.currentTimeMillis()
+  //    val bcGrad = sc.broadcast(grad)
+  //    // Each executor updates weights based on the summed up and compressed gradient
+  //    // Communication between driver and executor is via compressed gradient
+  //    // Updating weights values is based on decompressed one
+  //    executors.foreach(_ => optimizer.update(bcGrad.value, weights))
+  //    logger.info(s"Epoch[$epoch] batch $batch update weights cost "
+  //      + s"${System.currentTimeMillis() - updateStart} ms")
+  //  }
+  //
+  //  // TODO: How to get validData? Assign some part of each window randomly? Will it work?
+  //  protected def validate(epoch: Int): Double = {
+  //    val validStart = System.currentTimeMillis()
+  //    val (sumLoss, truePos, trueNeg, falsePos, falseNeg, validNum) =
+  //      executors.aggregate((0.0, 0, 0, 0, 0, 0))(
+  //        seqOp = (_, _) => ValidationUtil.calLossPrecision(weights, validData, loss),
+  //        combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3,
+  //          c1._4 + c2._4, c1._5 + c2._5, c1._6 + c2._6)
+  //      )
+//      val validLoss = sumLoss / validNum
+//      val precision = 1.0 * (truePos + trueNeg) / validNum
+//      val trueRecall = 1.0 * truePos / (truePos + falseNeg)
+//      val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+//      logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
+//        + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
+//        + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+//      validLoss
+  //  }
 
   def getName: String
 
 }
 
+class ComputePartialGradient extends AllWindowFunction[LabeledData, (Gradient, DataSet), GlobalWindow] {
+  override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[(Gradient, DataSet)]): Unit = {
+    trainData = new DataSet
+    val it = input.iterator
+    while (it.hasNext) {
+      trainData += it.next()
+    }
 
+    val (grad, _, _, _) =
+      optimizer.miniBatchGradientDescent(weights, trainData, loss)
+
+    gradient = grad
+
+    out.collect(grad, trainData)
+  }
+}
+
+class SendGradient extends MapFunction[Gradient, Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(SendGradient.super.getClass)
+
+
+  override def map(t: Gradient): Gradient = {
+    // TODO: implement Atomix communication
+    logger.info("Send gradient")
+    // it has to return something otherwise next map operator will never be executed
+    t
+  }
+}
+
+class GetNewGradient extends MapFunction[Gradient, Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(GetNewGradient.super.getClass)
+
+
+  override def map(t: Gradient): Gradient = {
+    // Get new gradient
+    // TODO: Implement Atomix communication
+    // pass it to the next stream operator
+    // out.collect()
+    logger.info("Get new gradient")
+    gradient
+  }
+}
+
+class UpdateWeights extends MapFunction[Gradient, Unit] {
+  private val logger: Logger = LoggerFactory.getLogger(UpdateWeights.super.getClass)
+
+  override def map(t: Gradient): Unit = {
+    logger.info("Update weights {}", weights)
+    optimizer.update(t, weights)
+    logger.info("New weights {}", weights)
+  }
+}
+
+class ValidateWeightsOnNewWindow extends MapFunction[(Gradient, DataSet), Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(ValidateWeightsOnNewWindow.super.getClass)
+
+  override def map(t: (Gradient, DataSet)): Gradient = {
+    val validStart = System.currentTimeMillis()
+    val validationData = t._2
+    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum) = ValidationUtil.calLossPrecision(weights, validationData, loss)
+    val precision = 1.0 * (truePos + trueNeg) / validNum
+    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
+    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
+      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
+      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+    t._1
+  }
+}

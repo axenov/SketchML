@@ -38,7 +38,6 @@
             <groupId>com.twitter</groupId>
             <artifactId>chill_2.11</artifactId>
             <version>0.8.0</version>
-            <scope>test</scope>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.twitter/chill-java -->
@@ -46,7 +45,6 @@
             <groupId>com.twitter</groupId>
             <artifactId>chill-java</artifactId>
             <version>0.8.0</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -62,30 +60,15 @@
             <version>2.11</version>
             <scope>provided</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_2.11</artifactId>
-            <version>2.2.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib-local_2.11</artifactId>
-            <version>2.2.0</version>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-scala_2.11</artifactId>
             <version>1.7.0</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-scala_2.11</artifactId>
             <version>1.7.0</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -93,9 +76,19 @@
             <version>1.7.0</version>
         </dependency>
         <dependency>
-          <groupId>io.atomix</groupId>
-          <artifactId>atomix</artifactId>
-          <version>3.0.6</version>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.atomix</groupId>
+            <artifactId>atomix</artifactId>
+            <version>3.0.6</version>
         </dependency>
     </dependencies>
 

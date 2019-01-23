@@ -1,6 +1,6 @@
 package org.dma.sketchml.ml.objective
 
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.flink.ml.math.DenseVector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient._
 import org.dma.sketchml.ml.util.Maths
@@ -49,7 +49,7 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
 
   private def update(grad: DenseDoubleGradient, weight: DenseVector, lr: Double): Unit = {
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- w.indices) {
       val m_t = beta1 * m(i) + (1 - beta1) * g(i)
       val v_t = beta2 * v(i) + (1 - beta2) * g(i) * g(i)
@@ -63,7 +63,7 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
   private def update(grad: SparseDoubleGradient, weight: DenseVector, lr: Double): Unit = {
     val k = grad.indices
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- k.indices) {
       val dim = k(i)
       val grad = g(i)
@@ -78,7 +78,7 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
 
   private def update(grad: DenseFloatGradient, weight: DenseVector, lr: Double): Unit = {
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- w.indices) {
       val m_t = beta1 * m(i) + (1 - beta1) * g(i)
       val v_t = beta2 * v(i) + (1 - beta2) * g(i) * g(i)
@@ -92,7 +92,7 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
   private def update(grad: SparseFloatGradient, weight: DenseVector, lr: Double): Unit = {
     val k = grad.indices
     val g = grad.values
-    val w = weight.values
+    val w = weight.data
     for (i <- k.indices) {
       val dim = k(i)
       val grad = g(i)
@@ -104,7 +104,6 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
       v(dim) = v_t
     }
   }
-
 
 
 }
