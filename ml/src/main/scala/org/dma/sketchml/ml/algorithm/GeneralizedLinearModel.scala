@@ -1,26 +1,20 @@
 package org.dma.sketchml.ml.algorithm
 
-import java.lang
-
-import org.apache.flink.api.common.state.ReducingState
+import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.functions.ProcessFunction
-import org.apache.flink.streaming.api.scala.function.{ProcessAllWindowFunction, ProcessWindowFunction}
+import org.apache.flink.streaming.api.scala.function.AllWindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
-import org.apache.flink.streaming.api.windowing.assigners.{GlobalWindows, TumblingProcessingTimeWindows}
-import org.apache.flink.streaming.api.windowing.time.Time
-import org.apache.flink.streaming.api.windowing.triggers.{CountTrigger, Trigger, TriggerResult}
-import org.apache.flink.streaming.api.windowing.windows.{GlobalWindow, TimeWindow}
+import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
 import org.dma.sketchml.ml.gradient.Gradient
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
+import org.dma.sketchml.ml.util.ValidationUtil
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object GeneralizedLinearModel {
   private val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
@@ -71,16 +65,12 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
     dataStream
       .countWindowAll(conf.windowSize)
-      .process(new ComputePartialGradient)(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
-      .map((t: (Gradient, Int, Double, Double)) => (Gradient.compress(t._1, conf), t._2, t._3, t._4))(TypeInformation.of(classOf[(Gradient, Int, Double, Double)]))
-      .process(new SendGradient)(TypeInformation.of(classOf[Unit]))
-      .process(new GetNewGradient)(TypeInformation.of(classOf[Gradient]))
-      .process(new UpdateWeights)(TypeInformation.of(classOf[Unit]))
-
-    logger.info(s"Train done, total cost ${System.currentTimeMillis() - startTime} ms")
-    logger.info(s"Train loss: [${trainLosses.mkString(", ")}]")
-    logger.info(s"Valid loss: [${validLosses.mkString(", ")}]")
-    logger.info(s"Time: [${timeElapsed.mkString(", ")}]")
+      .apply(new ComputePartialGradient)(TypeInformation.of(classOf[(Gradient, DataSet)]))
+      .map(new ValidateWeightsOnNewWindow)(TypeInformation.of(classOf[Gradient]))
+      .map((t: Gradient) => Gradient.compress(t, conf))(TypeInformation.of(classOf[Gradient]))
+      .map(new SendGradient)(TypeInformation.of(classOf[Gradient]))
+      .map(new GetNewGradient)(TypeInformation.of(classOf[Gradient]))
+      .map(new UpdateWeights)(TypeInformation.of(classOf[Unit]))
   }
 
   //  protected def trainOneEpoch(epoch: Int, batchNum: Int): Double = {
@@ -128,16 +118,6 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   //    batchLoss
   //  }
 
-  // TODO: Method similar to aggregateAndUpdate, but related to the 'magic-box'
-  // TODO: it should be invoked on new gradient appearing
-  protected def consolidate(incomingGradient: Gradient): Unit = {
-    val gradientsSum = Gradient.sum(conf.featureNum, Array(incomingGradient, gradient))
-    // We should take the average value
-    gradientsSum.timesBy(0.5)
-    gradient = gradientsSum
-    optimizer.update(gradient, weights)
-  }
-
   //  protected def aggregateAndUpdate(epoch: Int, batch: Int): Unit = {
   //    val aggrStart = System.currentTimeMillis()
   //    // Based on number of features, sum partial compressed gradients to one gradient
@@ -176,59 +156,86 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   //        combOp = (c1, c2) => (c1._1 + c2._1, c1._2 + c2._2, c1._3 + c2._3,
   //          c1._4 + c2._4, c1._5 + c2._5, c1._6 + c2._6)
   //      )
-  //    val validLoss = sumLoss / validNum
-  //    val precision = 1.0 * (truePos + trueNeg) / validNum
-  //    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
-  //    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
-  //    logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
-  //      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
-  //      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-  //    validLoss
+//      val validLoss = sumLoss / validNum
+//      val precision = 1.0 * (truePos + trueNeg) / validNum
+//      val trueRecall = 1.0 * truePos / (truePos + falseNeg)
+//      val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+//      logger.info(s"Epoch[$epoch] validation cost ${System.currentTimeMillis() - validStart} ms, "
+//        + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
+//        + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+//      validLoss
   //  }
 
   def getName: String
 
 }
 
-class ComputePartialGradient extends ProcessAllWindowFunction[LabeledData, (Gradient, Int, Double, Double), GlobalWindow] {
-
-  override def process(context: Context, elements: Iterable[LabeledData], out: Collector[(Gradient, Int, Double, Double)]): Unit = {
+class ComputePartialGradient extends AllWindowFunction[LabeledData, (Gradient, DataSet), GlobalWindow] {
+  override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[(Gradient, DataSet)]): Unit = {
     trainData = new DataSet
-    val it = elements.iterator
+    val it = input.iterator
     while (it.hasNext) {
       trainData += it.next()
     }
 
-    val (grad, batchSize, objLoss, regLoss) =
+    val (grad, _, _, _) =
       optimizer.miniBatchGradientDescent(weights, trainData, loss)
 
     gradient = grad
 
-    out.collect((grad, batchSize, objLoss, regLoss))
+    out.collect(grad, trainData)
   }
-
 }
 
-class SendGradient extends ProcessFunction[(Gradient, Int, Double, Double), Unit] {
-  override def processElement(value: (Gradient, Int, Double, Double), ctx: ProcessFunction[(Gradient, Int, Double, Double), Unit]#Context, out: Collector[Unit]): Unit = {
+class SendGradient extends MapFunction[Gradient, Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(SendGradient.super.getClass)
+
+
+  override def map(t: Gradient): Gradient = {
     // TODO: implement Atomix communication
+    logger.info("Send gradient")
+    // it has to return something otherwise next map operator will never be executed
+    t
   }
 }
 
-class GetNewGradient extends ProcessFunction[Unit, Gradient] {
-  override def processElement(value: Unit, ctx: ProcessFunction[Unit, Gradient]#Context, out: Collector[Gradient]): Unit = {
+class GetNewGradient extends MapFunction[Gradient, Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(GetNewGradient.super.getClass)
+
+
+  override def map(t: Gradient): Gradient = {
     // Get new gradient
     // TODO: Implement Atomix communication
     // pass it to the next stream operator
     // out.collect()
-    out.collect(gradient)
+    logger.info("Get new gradient")
+    gradient
   }
 }
 
-class UpdateWeights extends ProcessFunction[Gradient, Unit] {
-  override def processElement(value: Gradient, ctx: ProcessFunction[Gradient, Unit]#Context, out: Collector[Unit]): Unit = {
-    optimizer.update(value, weights)
+class UpdateWeights extends MapFunction[Gradient, Unit] {
+  private val logger: Logger = LoggerFactory.getLogger(UpdateWeights.super.getClass)
+
+  override def map(t: Gradient): Unit = {
+    logger.info("Update weights {}", weights)
+    optimizer.update(t, weights)
+    logger.info("New weights {}", weights)
   }
 }
 
+class ValidateWeightsOnNewWindow extends MapFunction[(Gradient, DataSet), Gradient] {
+  private val logger: Logger = LoggerFactory.getLogger(ValidateWeightsOnNewWindow.super.getClass)
 
+  override def map(t: (Gradient, DataSet)): Gradient = {
+    val validStart = System.currentTimeMillis()
+    val validationData = t._2
+    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum) = ValidationUtil.calLossPrecision(weights, validationData, loss)
+    val precision = 1.0 * (truePos + trueNeg) / validNum
+    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
+    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
+      + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
+      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+    t._1
+  }
+}
