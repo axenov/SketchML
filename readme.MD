@@ -12,7 +12,7 @@ To run the program, you should pass AT LEAST these parameters:
 
 PROTIP: remember that path to the file is in URI format, so on Windows it looks quite funny e.g.:
 
-`--flink.sketchml.input.path file///C:/main_folder/data.txt`
+`--flink.sketchml.input.path file:///C:/main_folder/data.txt`
 
 Example configuration, which I used to run the program:
 
