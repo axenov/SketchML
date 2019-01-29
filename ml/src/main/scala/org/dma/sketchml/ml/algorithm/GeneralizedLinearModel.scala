@@ -147,8 +147,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   //      + s"${System.currentTimeMillis() - updateStart} ms")
   //  }
   //
-  //  // TODO: How to get validData? Assign some part of each window randomly? Will it work?
-  //  protected def validate(epoch: Int): Double = {
+  // protected def validate(epoch: Int): Double = {
   //    val validStart = System.currentTimeMillis()
   //    val (sumLoss, truePos, trueNeg, falsePos, falseNeg, validNum) =
   //      executors.aggregate((0.0, 0, 0, 0, 0, 0))(
