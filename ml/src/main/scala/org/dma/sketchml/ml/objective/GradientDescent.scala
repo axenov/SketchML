@@ -13,7 +13,7 @@ object GradientDescent {
     new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
 }
 
-class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) {
+class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) extends Serializable {
   protected val logger = GradientDescent.logger
 
   var epoch: Int = 0
@@ -48,7 +48,8 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
     batch += 1
     if (batch == batchNum) {
-      epoch += 1; batch = 0
+      epoch += 1;
+      batch = 0
     }
     (grad, batchSize, objLoss, regLoss)
   }

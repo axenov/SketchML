@@ -90,6 +90,11 @@
             <artifactId>atomix</artifactId>
             <version>3.0.6</version>
         </dependency>
+        <dependency>
+            <groupId>hu.sztaki.ilab</groupId>
+            <artifactId>flink-ps_2.11</artifactId>
+            <version>0.1.0</version>
+        </dependency>
     </dependencies>
 
     <build>
