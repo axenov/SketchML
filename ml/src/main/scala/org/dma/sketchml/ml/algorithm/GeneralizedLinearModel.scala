@@ -14,8 +14,6 @@ import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.parameterserver.GradientDistributionWorker
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable.ArrayBuffer
-
 object GeneralizedLinearModel {
 
   object Model {
@@ -51,13 +49,8 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   def train(): Unit = {
     logger.info(s"Start to train a $getName model")
     logger.info(s"Configuration: $conf")
-    val startTime = System.currentTimeMillis()
     initModel()
 
-    val trainLosses = ArrayBuffer[Double](conf.epochNum)
-    val validLosses = ArrayBuffer[Double](conf.epochNum)
-    val timeElapsed = ArrayBuffer[Long](conf.epochNum)
-    //    val batchNum = Math.ceil(1.0 / conf.batchSpRatio).toInt
     val baseLogic: DataStream[DataSet] = dataStream
       .countWindowAll(conf.windowSize)
       .apply(new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))

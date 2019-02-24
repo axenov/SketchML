@@ -21,7 +21,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     * a single pull is received back. This means gradient is not updated, but maybe in a real distributed environment it
     * will work better.
     */
-
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     ps.pull(0)
     if (weights == null) {
