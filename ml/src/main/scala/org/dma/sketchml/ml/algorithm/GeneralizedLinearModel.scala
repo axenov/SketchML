@@ -17,7 +17,6 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable.ArrayBuffer
 
 object GeneralizedLinearModel {
-  private val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
 
   object Model {
     var weights: DenseVector = _
@@ -38,7 +37,7 @@ import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
 abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient protected val env: StreamExecutionEnvironment)
   extends Serializable {
-  protected val logger: Logger = GeneralizedLinearModel.logger
+  protected val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
   @transient protected var dataStream: DataStream[LabeledData] = _
 
   def loadData(): Unit = {
@@ -64,24 +63,24 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       .apply(new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
 
     val paramInit: Int => Gradient = (i: Int) => {
-      System.out.println("GRADIENT INITIALIZED ON THE SERVER")
+      LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, newGradient: Gradient) => {
-      System.out.println("GRADIENT UPDATED ON THE SERVER")
+      LoggerFactory.getLogger("Parameter server").info("GRADIENT UPDATED ON THE SERVER")
       Gradient.sum(conf.featureNum, Array(oldGradient, newGradient))
+
     }
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
 
     // move this parameters to ParameterTool once it's confirmed everything works fine here
-    val workerParallelism: Int = 1
     val psParallelism: Int = 1
     val iterationWaitTime: Long = 100
 
 
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
-      gradientUpdate, workerParallelism, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
+      gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
       TypeInformation.of(classOf[Int]),
       TypeInformation.of(classOf[Gradient]),
       TypeInformation.of(classOf[Gradient]))

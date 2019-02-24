@@ -14,6 +14,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
   private val logger: Logger = LoggerFactory.getLogger(GradientDistributionWorker.super.getClass)
 
   var weights: DenseVector = _
+  var gradient: Gradient = _
 
   /**
     * I'm not sure if this is working properly, because on local machine it seems that concurrent pushes happen before
@@ -22,6 +23,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     */
 
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
+    ps.pull(0)
     if (weights == null) {
       weights = new DenseVector(new Array[Double](conf.featureNum))
     }
@@ -36,13 +38,20 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
       + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
       + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
 
-    val compressedGradient: Gradient = Gradient.compress(grad, conf)
-    System.out.println("PUSH PUSH PUSH")
-    ps.pull(0)
-    ps.push(0, compressedGradient)
+    if (gradient == null) {
+      gradient = grad
+    } else {
+      gradient = Gradient.sum(conf.featureNum, Array(gradient, grad))
+    }
+
+    optimizer.update(gradient, weights)
+
+    ps.push(0, Gradient.compress(gradient, conf))
   }
 
+
   override def onPullRecv(paramId: Int, paramValue: Gradient, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
+    logger.info("ON PULL RECV")
     logger.info("Update weights {}", weights)
     optimizer.update(paramValue, weights)
     logger.info("New weights {}", weights)
