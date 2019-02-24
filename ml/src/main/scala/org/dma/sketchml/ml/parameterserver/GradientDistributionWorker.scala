@@ -52,6 +52,10 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
 
   override def onPullRecv(paramId: Int, paramValue: Gradient, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     logger.info("ON PULL RECV")
+    if (paramValue == Gradient.zero) {
+      logger.info("ZERO GRADIENT RECEIVED")
+      return
+    }
     logger.info("Update weights {}", weights)
     optimizer.update(paramValue, weights)
     logger.info("New weights {}", weights)

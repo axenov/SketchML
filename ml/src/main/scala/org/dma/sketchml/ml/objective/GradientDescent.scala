@@ -43,12 +43,12 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       l2Reg(grad, weight, loss.getRegParam)
     val regLoss = loss.getReg(weight)
 
-    logger.info(s"Epoch[$epoch] batch $batch gradient " +
-      s"cost ${System.currentTimeMillis() - startTime} ms, "
-      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
+//    logger.info(s"Epoch[$epoch] batch $batch gradient " +
+//      s"cost ${System.currentTimeMillis() - startTime} ms, "
+//      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
     batch += 1
     if (batch == batchNum) {
-      epoch += 1;
+      epoch += 1
       batch = 0
     }
     (grad, batchSize, objLoss, regLoss)
