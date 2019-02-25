@@ -15,7 +15,7 @@
 
     <properties>
         <jdkVersion>1.8</jdkVersion>
-        <scalaVersion>2.11.12</scalaVersion>
+        <scalaVersion>2.11.11</scalaVersion>
         <slf4jVersion>1.7.25</slf4jVersion>
     </properties>
 

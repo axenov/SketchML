@@ -66,6 +66,7 @@ object Gradient {
   }
 }
 
+@SerialVersionUID(1113799434508676069L)
 abstract class Gradient(val dim: Int) extends Serializable {
   require(dim > 0, s"Dimension is non-positive: $dim")
 

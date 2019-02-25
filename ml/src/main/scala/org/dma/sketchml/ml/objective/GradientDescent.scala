@@ -13,6 +13,7 @@ object GradientDescent {
     new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
 }
 
+@SerialVersionUID(1113799434508676043L)
 class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) extends Serializable {
   protected val logger = GradientDescent.logger
 

@@ -4,7 +4,8 @@ import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
 
 import scala.collection.mutable.ArrayBuffer
 
-object Maths {
+@SerialVersionUID(1L)
+object Maths extends Serializable {
   val EPS = 1e-8
 
   def add(k1: Array[Int], v1: Array[Double], k2: Array[Int],

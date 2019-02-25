@@ -9,7 +9,8 @@ import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.util.Maths
 
 
-object Parser {
+@SerialVersionUID(1L)
+object Parser extends Serializable {
   def loadStreamData(input: String, format: String, maxDim: Int, numPartition: Int,
                      negY: Boolean = true)(implicit sc: StreamExecutionEnvironment): DataStream[LabeledData] = {
     val parse: (String, Int, Boolean) => LabeledData = format match {

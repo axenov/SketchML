@@ -33,6 +33,7 @@ object GeneralizedLinearModel {
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
+@SerialVersionUID(1113799434508676088L)
 abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient protected val env: StreamExecutionEnvironment)
   extends Serializable {
   protected val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
@@ -83,6 +84,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
 }
 
+@SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
   override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
     trainData = new DataSet
