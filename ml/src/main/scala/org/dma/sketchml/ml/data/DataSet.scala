@@ -13,7 +13,7 @@ class DataSet {
   def get(i: Int): LabeledData = data(i)
 
   def loopingRead: LabeledData = {
-    if (readIndex >= size)
+    if (readIndex >= data.size)
       readIndex = 0
     val ins = data(readIndex)
     readIndex += 1

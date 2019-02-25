@@ -15,7 +15,7 @@ object Adam {
 
 class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
   extends GradientDescent(dim, lr_0, decay, batchSpRatio) {
-  override protected val logger = Adam.logger
+  override protected val logger: Logger = Adam.logger
 
   val beta1 = 0.9
   val beta2 = 0.999
@@ -26,10 +26,10 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
 
   override def update(grad: Gradient, weight: DenseVector): Unit = {
     val startTime = System.currentTimeMillis()
-    if (epoch > 0 && batch == 0) {
-      beta1_t *= beta1
-      beta2_t *= beta2
-    }
+
+    beta1_t *= beta1
+    beta2_t *= beta2
+
     update0(grad, weight)
     logger.info(s"Update weight cost ${System.currentTimeMillis() - startTime} ms")
   }
