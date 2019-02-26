@@ -16,7 +16,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
 
   var weights: DenseVector = _
   var gradient: Gradient = _
-  var sem: Semaphore = new Semaphore(1)
 
   /**
     * I'm not sure if this is working properly, because on local machine it seems that concurrent pushes happen before
@@ -25,7 +24,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     */
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     ps.pull(1)
-    sem.acquire()
     if (weights == null) {
       weights = new DenseVector(new Array[Double](conf.featureNum))
     }
@@ -62,6 +60,5 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     logger.info("Update weights {}", weights)
     optimizer.update(paramValue, weights)
     logger.info("New weights {}", weights)
-    sem.release()
   }
 }

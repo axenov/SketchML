@@ -3,7 +3,6 @@ package org.dma.sketchml.ml.algorithm
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.functions.ProcessFunction
 import org.apache.flink.streaming.api.scala.function.AllWindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
@@ -12,8 +11,7 @@ import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
 import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
-import org.dma.sketchml.ml.parameterserver.{GradientDistributionWorker, GradientDistributionWorkerWithFuture}
-import org.dma.sketchml.ml.util.ValidationUtil
+import org.dma.sketchml.ml.parameterserver.GradientDistributionWorker
 import org.slf4j.{Logger, LoggerFactory}
 
 object GeneralizedLinearModel {
@@ -60,6 +58,11 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
+
+    /**
+      * This could be potentially improved if custom server logic is implemented. Then we could compress the gradient
+      * on the real pull only, not after every update.
+      */
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
       val logger = LoggerFactory.getLogger("Parameter server")
       logger.info("GRADIENT UPDATED ON THE SERVER")
@@ -79,7 +82,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
       TypeInformation.of(classOf[Int]),
       TypeInformation.of(classOf[Gradient]),
-      TypeInformation.of(classOf[Gradient])).print()
+      TypeInformation.of(classOf[Gradient]))
   }
 
   def getName: String
