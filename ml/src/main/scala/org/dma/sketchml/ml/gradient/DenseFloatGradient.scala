@@ -1,11 +1,12 @@
 package org.dma.sketchml.ml.gradient
 
 import org.apache.flink.ml.math.{DenseVector, SparseVector}
+import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.ml.util.Maths
 import org.dma.sketchml.sketch.base.SketchMLException
 
-class DenseFloatGradient(d: Int, val values: Array[Float]) extends Gradient(d) {
+class DenseFloatGradient(d: Int, val values: Array[Float], val _conf: MLConf = null) extends Gradient(d, _conf) {
   def this(d: Int) = this(d, new Array[Float](d))
 
   def this(grad: Gradient) {

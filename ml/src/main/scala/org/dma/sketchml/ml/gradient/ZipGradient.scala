@@ -3,12 +3,13 @@ package org.dma.sketchml.ml.gradient
 import java.util
 import java.util.concurrent.ExecutionException
 
+import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.sketch.base.{Quantizer, SketchMLException}
 import org.dma.sketchml.sketch.util.Sort
 import org.slf4j.{Logger, LoggerFactory}
 
-class ZipGradient(d: Int, binNum: Int) extends Gradient(d) {
+class ZipGradient(d: Int, binNum: Int, val _conf: MLConf = null) extends Gradient(d, _conf) {
   private var size: Int = 0
   var indices: Array[Int] = _
   var quantizer: ZipMLQuantizer = _

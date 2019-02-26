@@ -3,6 +3,7 @@ package org.dma.sketchml.ml.algorithm
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
+import org.apache.flink.streaming.api.functions.ProcessFunction
 import org.apache.flink.streaming.api.scala.function.AllWindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
@@ -11,7 +12,8 @@ import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
 import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
-import org.dma.sketchml.ml.parameterserver.GradientDistributionWorker
+import org.dma.sketchml.ml.parameterserver.{GradientDistributionWorker, GradientDistributionWorkerWithFuture}
+import org.dma.sketchml.ml.util.ValidationUtil
 import org.slf4j.{Logger, LoggerFactory}
 
 object GeneralizedLinearModel {
@@ -24,13 +26,11 @@ object GeneralizedLinearModel {
   }
 
   object Data {
-    var trainData: DataSet = _
-    var validData: DataSet = _
+    var validationData: DataSet = _
   }
 
 }
 
-import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
 @SerialVersionUID(1113799434508676088L)
@@ -60,24 +60,26 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
-    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, newGradient: Gradient) => {
-      LoggerFactory.getLogger("Parameter server").info("GRADIENT UPDATED ON THE SERVER")
-      Gradient.sum(conf.featureNum, Array(oldGradient, newGradient))
+    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
+      val logger = LoggerFactory.getLogger("Parameter server")
+      logger.info("GRADIENT UPDATED ON THE SERVER")
+      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      newGrad.timesBy(0.5)
+      newGrad = Gradient.compress(newGrad, update.conf)
 
+      newGrad
     }
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
-
 
     // move this parameters to ParameterTool once it's confirmed everything works fine here
     val psParallelism: Int = 1
     val iterationWaitTime: Long = 100
 
-
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
       TypeInformation.of(classOf[Int]),
       TypeInformation.of(classOf[Gradient]),
-      TypeInformation.of(classOf[Gradient]))
+      TypeInformation.of(classOf[Gradient])).print()
   }
 
   def getName: String
@@ -87,10 +89,11 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 @SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
   override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
-    trainData = new DataSet
+    val trainData = new DataSet
     val it = input.iterator
     while (it.hasNext) {
-      trainData += it.next()
+      val item = it.next()
+      trainData.add(item)
     }
     out.collect(trainData)
   }

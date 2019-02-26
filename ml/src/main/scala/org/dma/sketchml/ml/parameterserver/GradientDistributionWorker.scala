@@ -1,8 +1,9 @@
 package org.dma.sketchml.ml.parameterserver
 
+import java.util.concurrent.Semaphore
+
 import hu.sztaki.ilab.ps.{ParameterServerClient, WorkerLogic}
 import org.apache.flink.ml.math.DenseVector
-import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data.trainData
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.DataSet
 import org.dma.sketchml.ml.gradient.Gradient
@@ -15,6 +16,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
 
   var weights: DenseVector = _
   var gradient: Gradient = _
+  var sem: Semaphore = new Semaphore(1)
 
   /**
     * I'm not sure if this is working properly, because on local machine it seems that concurrent pushes happen before
@@ -22,7 +24,8 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     * will work better.
     */
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
-    ps.pull(0)
+    ps.pull(1)
+    sem.acquire()
     if (weights == null) {
       weights = new DenseVector(new Array[Double](conf.featureNum))
     }
@@ -32,7 +35,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val trueRecall = 1.0 * truePos / (truePos + falseNeg)
     val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
     val (grad, _, _, _) =
-      optimizer.miniBatchGradientDescent(weights, trainData, loss)
+      optimizer.miniBatchGradientDescent(weights, data, loss)
     logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
       + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
       + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
@@ -41,11 +44,12 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
       gradient = grad
     } else {
       gradient = Gradient.sum(conf.featureNum, Array(gradient, grad))
+      gradient.timesBy(0.5)
     }
 
     optimizer.update(gradient, weights)
 
-    ps.push(0, Gradient.compress(gradient, conf))
+    ps.push(1, Gradient.compress(gradient, conf))
   }
 
 
@@ -58,5 +62,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     logger.info("Update weights {}", weights)
     optimizer.update(paramValue, weights)
     logger.info("New weights {}", weights)
+    sem.release()
   }
 }

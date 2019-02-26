@@ -1,10 +1,11 @@
 package org.dma.sketchml.ml.gradient
 
+import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.ml.util.Maths
 
 class SparseDoubleGradient(d: Int, val indices: Array[Int],
-                           val values: Array[Double]) extends Gradient(d) {
+                           val values: Array[Double], val _conf: MLConf = null) extends Gradient(d, _conf) {
   {
     require(indices.length == values.length,
       s"Sizes of indices and values not match: ${indices.length} & ${values.length}")
