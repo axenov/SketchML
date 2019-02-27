@@ -2,6 +2,7 @@ package org.dma.sketchml.ml.gradient
 import java.util
 
 import breeze.stats.distributions.Bernoulli
+import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.sketch.base.SketchMLException
 import org.dma.sketchml.sketch.binary.BinaryUtils
@@ -10,7 +11,7 @@ object FixedPointGradient {
   private val bernoulli = new Bernoulli(0.5)
 }
 
-class FixedPointGradient(d: Int, val numBits: Int) extends Gradient(d) {
+class FixedPointGradient(d: Int, val numBits: Int, val _conf: MLConf = null) extends Gradient(d, _conf) {
   import FixedPointGradient._
 
   require(numBits < 30, s"Bit num out of range: $numBits")

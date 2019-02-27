@@ -1,14 +1,15 @@
 package org.dma.sketchml.ml.gradient
 
+import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.sketch.base.SketchMLException
 import org.dma.sketchml.sketch.quantization.QuantileQuantizer
 import org.dma.sketchml.sketch.sketch.frequency.GroupedMinMaxSketch
 
-class SketchGradient(d: Int, binNum: Int, groupNum: Int, rowNum: Int, colRatio: Double) extends Gradient(d) {
+class SketchGradient(d: Int, binNum: Int, groupNum: Int, rowNum: Int, colRatio: Double, _conf: MLConf = null) extends Gradient(d, _conf) {
 
-  def this(grad: Gradient, binNum: Int, groupNum: Int, rowNum: Int, colRatio: Double) {
-    this(grad.dim, binNum, groupNum, rowNum, colRatio)
+  def this(grad: Gradient, binNum: Int, groupNum: Int, rowNum: Int, colRatio: Double, conf: MLConf) {
+    this(grad.dim, binNum, groupNum, rowNum, colRatio, conf)
     grad.kind match {
       case Kind.DenseDouble => fromDense(grad.asInstanceOf[DenseDoubleGradient])
       case Kind.SparseDouble => fromSparse(grad.asInstanceOf[SparseDoubleGradient])
