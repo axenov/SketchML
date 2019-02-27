@@ -60,11 +60,12 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
+
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, newGradient: Gradient) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT UPDATED ON THE SERVER")
       Gradient.sum(conf.featureNum, Array(oldGradient, newGradient))
-
     }
+
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
 

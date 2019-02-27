@@ -32,7 +32,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val trueRecall = 1.0 * truePos / (truePos + falseNeg)
     val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
     val (grad, _, _, _) =
-      optimizer.miniBatchGradientDescent(weights, trainData, loss)
+      optimizer.miniBatchGradientDescent(weights, data, loss)
     logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
       + s"valid size=$validNum, loss=$validLoss, precision=$precision, "
       + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
@@ -51,6 +51,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
 
   override def onPullRecv(paramId: Int, paramValue: Gradient, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     logger.info("ON PULL RECV")
+    System.err.println("Hi!!")
     if (paramValue == Gradient.zero) {
       logger.info("ZERO GRADIENT RECEIVED")
       return
