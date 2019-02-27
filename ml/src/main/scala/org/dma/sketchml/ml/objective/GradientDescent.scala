@@ -13,6 +13,7 @@ object GradientDescent {
     new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
 }
 
+@SerialVersionUID(1113799434508676043L)
 class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) extends Serializable {
   protected val logger = GradientDescent.logger
 
@@ -21,6 +22,9 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   val batchNum: Double = Math.ceil(1.0 / batchSpRatio).toInt
 
   def miniBatchGradientDescent(weight: DenseVector, dataSet: DataSet, loss: Loss): (Gradient, Int, Double, Double) = {
+    if (dataSet == null) {
+      return null
+    }
     val startTime = System.currentTimeMillis()
 
     // WARNING: I changed logic here, so window size == batch size!

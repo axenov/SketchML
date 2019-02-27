@@ -19,7 +19,7 @@ object Gradient {
     val res = conf.compressor match {
       case Constants.GRADIENT_COMPRESSOR_SKETCH =>
         new SketchGradient(grad, conf.quantBinNum, conf.sketchGroupNum,
-          conf.sketchRowNum, conf.sketchColRatio)
+          conf.sketchRowNum, conf.sketchColRatio, conf)
       case Constants.GRADIENT_COMPRESSOR_FIXED_POINT =>
         new FixedPointGradient(grad, conf.fixedPointBitNum)
       case Constants.GRADIENT_COMPRESSOR_ZIP =>
@@ -66,7 +66,8 @@ object Gradient {
   }
 }
 
-abstract class Gradient(val dim: Int) extends Serializable {
+@SerialVersionUID(1113799434508676069L)
+abstract class Gradient(val dim: Int, val conf: MLConf) extends Serializable {
   require(dim > 0, s"Dimension is non-positive: $dim")
 
   def plusBy(o: Gradient): Gradient = {
@@ -147,7 +148,7 @@ object ZeroGradient {
   def getInstance(): ZeroGradient = instance
 }
 
-class ZeroGradient private extends Gradient(1) {
+class ZeroGradient private extends Gradient(1, null) {
   override def plusBy(o: Gradient): Gradient = o
 
   override def timesBy(x: Double): Unit = {}

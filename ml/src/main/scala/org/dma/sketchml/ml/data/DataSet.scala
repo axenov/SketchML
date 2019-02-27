@@ -2,7 +2,8 @@ package org.dma.sketchml.ml.data
 
 import scala.collection.mutable.ArrayBuffer
 
-class DataSet {
+@SerialVersionUID(1L)
+class DataSet extends Serializable {
   private val data = ArrayBuffer[LabeledData]()
   private var readIndex = 0
 

@@ -4,7 +4,9 @@ import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
 
 import org.dma.sketchml.ml.util.Maths
 
+@SerialVersionUID(1113799434508676045L)
 trait Loss extends Serializable {
+
   def loss(pre: Double, y: Double): Double
 
   def grad(pre: Double, y: Double): Double

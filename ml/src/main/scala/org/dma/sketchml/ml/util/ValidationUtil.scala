@@ -8,16 +8,17 @@ import org.dma.sketchml.ml.objective.Loss
 import org.dma.sketchml.sketch.util.Sort
 import org.slf4j.{Logger, LoggerFactory}
 
-object ValidationUtil {
+@SerialVersionUID(1L)
+object ValidationUtil extends Serializable {
   private val logger: Logger = LoggerFactory.getLogger(ValidationUtil.getClass)
 
   def calLossPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int) = {
     val validStart = System.currentTimeMillis()
     val validNum = validData.size
     var validLoss = 0.0
-    var truePos = 0  // ground truth: positive, prediction: positive
+    var truePos = 0 // ground truth: positive, prediction: positive
     var falsePos = 0 // ground truth: negative, prediction: positive
-    var trueNeg = 0  // ground truth: negative, prediction: negative
+    var trueNeg = 0 // ground truth: negative, prediction: negative
     var falseNeg = 0 // ground truth: positive, prediction: negative
 
     for (i <- 0 until validNum) {
@@ -48,9 +49,9 @@ object ValidationUtil {
     var validLoss = 0.0
     val scoresArray = new Array[Double](validNum)
     val labelsArray = new Array[Double](validNum)
-    var truePos = 0  // ground truth: positive, precision: positive
+    var truePos = 0 // ground truth: positive, precision: positive
     var falsePos = 0 // ground truth: negative, precision: positive
-    var trueNeg = 0  // ground truth: negative, precision: negative
+    var trueNeg = 0 // ground truth: negative, precision: negative
     var falseNeg = 0 // ground truth: positive, precision: negative
 
     for (i <- 0 until validNum) {

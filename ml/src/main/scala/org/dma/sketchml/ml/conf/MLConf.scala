@@ -72,11 +72,12 @@ object MLConf {
 
 }
 
+@SerialVersionUID(1113799434508676188L)
 case class MLConf(algo: String, input: String, format: String, workerNum: Int,
                   featureNum: Int, validRatio: Double, epochNum: Int, batchSpRatio: Double,
                   learnRate: Double, learnDecay: Double, l1Reg: Double, l2Reg: Double,
                   compressor: String, quantBinNum: Int, sketchGroupNum: Int,
-                  sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int, windowSize: Int) {
+                  sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int, windowSize: Int) extends Serializable {
   require(Seq(ML_LOGISTIC_REGRESSION, ML_SUPPORT_VECTOR_MACHINE, ML_LINEAR_REGRESSION).contains(algo),
     throw new SketchMLException(s"Unsupported algorithm: $algo"))
   require(Seq(FORMAT_LIBSVM, FORMAT_CSV, FORMAT_DUMMY, FORMAT_LIBSVM_SEMICOLONS).contains(format),

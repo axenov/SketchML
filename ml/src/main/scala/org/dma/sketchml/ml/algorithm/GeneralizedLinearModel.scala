@@ -24,15 +24,14 @@ object GeneralizedLinearModel {
   }
 
   object Data {
-    var trainData: DataSet = _
-    var validData: DataSet = _
+    var validationData: DataSet = _
   }
 
 }
 
-import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Data._
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 
+@SerialVersionUID(1113799434508676088L)
 abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient protected val env: StreamExecutionEnvironment)
   extends Serializable {
   protected val logger: Logger = LoggerFactory.getLogger(GeneralizedLinearModel.getClass)
@@ -59,18 +58,26 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
-    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, newGradient: Gradient) => {
-      LoggerFactory.getLogger("Parameter server").info("GRADIENT UPDATED ON THE SERVER")
-      Gradient.sum(conf.featureNum, Array(oldGradient, newGradient))
 
+    /**
+      * This could be potentially improved if custom server logic is implemented. Then we could compress the gradient
+      * on the real pull only, not after every update.
+      */
+    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
+      val logger = LoggerFactory.getLogger("Parameter server")
+      logger.info("GRADIENT UPDATED ON THE SERVER")
+      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      newGrad.timesBy(0.5)
+      newGrad = Gradient.compress(newGrad, update.conf)
+
+      newGrad
     }
-    val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
+    val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
     // move this parameters to ParameterTool once it's confirmed everything works fine here
     val psParallelism: Int = 1
     val iterationWaitTime: Long = 100
-
 
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
@@ -83,12 +90,14 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
 }
 
+@SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
   override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
-    trainData = new DataSet
+    val trainData = new DataSet
     val it = input.iterator
     while (it.hasNext) {
-      trainData += it.next()
+      val item = it.next()
+      trainData.add(item)
     }
     out.collect(trainData)
   }
