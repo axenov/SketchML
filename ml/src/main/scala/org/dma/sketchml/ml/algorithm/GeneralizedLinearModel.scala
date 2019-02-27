@@ -77,7 +77,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
     // move this parameters to ParameterTool once it's confirmed everything works fine here
     val psParallelism: Int = 1
-    val iterationWaitTime: Long = 100
+
+    // It has to be 0, otherwise pulls are never recevied by the worker
+    val iterationWaitTime: Long = 0
 
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
