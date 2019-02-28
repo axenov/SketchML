@@ -65,19 +65,23 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       */
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
       val logger = LoggerFactory.getLogger("Parameter server")
-      logger.info("GRADIENT UPDATED ON THE SERVER")
-      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      val updateStart = System.currentTimeMillis()
+      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
       newGrad.timesBy(0.5)
-      newGrad = Gradient.compress(newGrad, update.conf)
+      val compressedGradient = Gradient.compress(newGrad, update.conf)
+      logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
+      Gradient.evaluateCompression(newGrad, compressedGradient)
 
-      newGrad
+      compressedGradient
     }
 
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
     // move this parameters to ParameterTool once it's confirmed everything works fine here
     val psParallelism: Int = 1
-    val iterationWaitTime: Long = 100
+
+    // It has to be 0, otherwise pulls are never recevied by the worker
+    val iterationWaitTime: Long = 0
 
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
