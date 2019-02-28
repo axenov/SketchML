@@ -11,6 +11,8 @@ object GradientDescent {
 
   def apply(conf: MLConf): GradientDescent =
     new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
+
+
 }
 
 @SerialVersionUID(1113799434508676043L)
@@ -20,6 +22,9 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   var epoch: Int = 0
   var batch: Int = 0
   val batchNum: Double = Math.ceil(1.0 / batchSpRatio).toInt
+  var count_updates_Gradient = 0.0
+  var accumlative_update_wiegth_Gradient = 0.0
+  var average_update_wiegth_Gradient = 0.0
 
   def miniBatchGradientDescent(weight: DenseVector, dataSet: DataSet, loss: Loss): (Gradient, Int, Double, Double) = {
     if (dataSet == null) {
@@ -106,7 +111,15 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       case fpGrad: FixedPointGradient => update(fpGrad.toAuto, weight)
       case zipGrad: ZipGradient => update(zipGrad.toAuto, weight)
     }
-    logger.info(s"Update weight cost ${System.currentTimeMillis() - startTime} ms")
+
+
+    //Calcualte the average update wieght instead of calculating weight for each single update
+    count_updates_Gradient += 1
+    val temp_weight = System.currentTimeMillis() - startTime
+    accumlative_update_wiegth_Gradient += temp_weight
+    average_update_wiegth_Gradient = accumlative_update_wiegth_Gradient / count_updates_Gradient
+    logger.info(s"Average update weights cost so far is ${average_update_wiegth_Gradient} ms")
+
   }
 
   private def update(grad: DenseDoubleGradient, weight: DenseVector, lr: Double): Unit = {

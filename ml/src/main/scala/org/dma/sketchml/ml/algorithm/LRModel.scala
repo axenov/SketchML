@@ -21,6 +21,8 @@ class LRModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Generaliz
 
   override protected def initModel(): Unit = {
     weights = new DenseVector(new Array[Double](_conf.featureNum))
+
+
     optimizer = Adam(_conf)
     loss = new L2LogLoss(_conf.l2Reg)
   }

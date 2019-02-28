@@ -38,16 +38,20 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   @transient protected var dataStream: DataStream[LabeledData] = _
 
   def loadData(): Unit = {
-    val startTime = System.currentTimeMillis()
+    //we don't need to check the loading time, as paper skip data loading time
+    //val startTime = System.currentTimeMillis()
     dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(env)
-    logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
+    //logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 
   protected def initModel(): Unit
 
   def train(): Unit = {
+
     logger.info(s"Start to train a $getName model")
     logger.info(s"Configuration: $conf")
+    //Start time for training process
+    val startTime = System.currentTimeMillis()
     initModel()
 
     val baseLogic: DataStream[DataSet] = dataStream
@@ -65,12 +69,14 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       */
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
       val logger = LoggerFactory.getLogger("Parameter server")
+      logger.info("GRADIENT UPDATED ON THE SERVER")
       val updateStart = System.currentTimeMillis()
-      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
       newGrad.timesBy(0.5)
       val compressedGradient = Gradient.compress(newGrad, update.conf)
       logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
-      Gradient.evaluateCompression(newGrad, compressedGradient)
+      //the evaluateCompression is already called in Gradient class inside compress function
+      //Gradient.evaluateCompression(newGrad, compressedGradient)
 
       compressedGradient
     }
@@ -88,6 +94,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       TypeInformation.of(classOf[Int]),
       TypeInformation.of(classOf[Gradient]),
       TypeInformation.of(classOf[Gradient]))
+
+    //end time for training process
+    logger.info(s"Training run time is ${System.currentTimeMillis() - startTime} ms")
   }
 
   def getName: String

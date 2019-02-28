@@ -10,7 +10,13 @@ import org.dma.sketchml.sketch.util.Utils
 import org.slf4j.{Logger, LoggerFactory}
 
 object Gradient {
-  def zero: ZeroGradient = ZeroGradient.getInstance()
+  var count_updates_Gradient = 0.0
+  var accumlative_update_wiegth_Gradient = 0.0
+  var average_update_wiegth_Gradient = 0.0
+
+  var accumlative_sizeOrig = 0.0
+  var accumlative_sizeComp = 0.0
+  var total_rate = 0.0
 
   private def logger: Logger = LoggerFactory.getLogger(Gradient.getClass)
 
@@ -36,7 +42,7 @@ object Gradient {
     logger.info(s"Gradient compression from ${grad.kind} to ${res.kind} cost " +
       s"${System.currentTimeMillis() - startTime} ms")
     // uncomment to evaluate the performance of compression
-    //evaluateCompression(grad, res)
+    evaluateCompression(grad, res)
     res
   }
 
@@ -47,24 +53,33 @@ object Gradient {
     sum.toAuto
   }
 
+
   def evaluateCompression(origin: Gradient, comp: Gradient): Unit = {
-    logger.info(s"Evaluating compression from ${origin.kind} to ${comp.kind}, " +
-      s"sparsity[${origin.countNNZ.toDouble / origin.dim}]")
+    //  logger.info(s"Evaluating compression from ${origin.kind} to ${comp.kind}, " +
+    //  s"sparsity[${origin.countNNZ.toDouble / origin.dim}]")
+
     // distances
     val (vOrig, vComp) = origin.kind match {
       case Kind.DenseDouble => (origin.asInstanceOf[DenseDoubleGradient].values, comp.toDense.values)
       case Kind.SparseDouble => (origin.asInstanceOf[SparseDoubleGradient].values, comp.toSparse.values)
     }
-    logger.info(s"Distances: euclidean[${Maths.euclidean(vOrig, vComp)}], " +
-      s"cosine[${Maths.cosine(vOrig, vComp)}]")
-    // size
+    //logger.info(s"Distances: euclidean[${Maths.euclidean(vOrig, vComp)}], " +
+    //  s"cosine[${Maths.cosine(vOrig, vComp)}]")
+
+
+    // To calculate message size
     val sizeOrig = Utils.sizeof(origin)
+    accumlative_sizeOrig += sizeOrig
     val sizeComp = Utils.sizeof(comp)
+    accumlative_sizeComp += sizeComp
     val rate = 1.0 * sizeOrig / sizeComp
-    logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
-      s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
+    total_rate = 1.0 * accumlative_sizeOrig / accumlative_sizeComp
+    //logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
+    //  s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
+    logger.info(s"current origin message size[$accumlative_sizeOrig bytes], current comp message size [$accumlative_sizeComp bytes], Total Compression rate[$total_rate]")
   }
 }
+
 
 @SerialVersionUID(1113799434508676069L)
 abstract class Gradient(val dim: Int, val conf: MLConf) extends Serializable {

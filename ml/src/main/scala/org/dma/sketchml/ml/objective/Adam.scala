@@ -3,6 +3,7 @@ package org.dma.sketchml.ml.objective
 import org.apache.flink.ml.math.DenseVector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient._
+import org.dma.sketchml.ml.objective.Adam.logger
 import org.dma.sketchml.ml.util.Maths
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -11,6 +12,7 @@ object Adam {
 
   def apply(conf: MLConf): GradientDescent =
     new Adam(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
+
 }
 
 class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
@@ -23,15 +25,28 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
   var beta2_t = 0.999
   val m = new Array[Double](dim)
   val v = new Array[Double](dim)
+  var count_updates = 0.0
+  var accumlative_update_wiegth = 0.0
+  var average_update_wiegth = 0.0
 
   override def update(grad: Gradient, weight: DenseVector): Unit = {
     val startTime = System.currentTimeMillis()
+
 
     beta1_t *= beta1
     beta2_t *= beta2
 
     update0(grad, weight)
-    logger.info(s"Update weight cost ${System.currentTimeMillis() - startTime} ms")
+
+
+
+    //logger.info(s"Update weight cost ${System.currentTimeMillis() - startTime} ms")
+    //Calcualte the average update wieght instead of calculating weight for each single update
+    count_updates += 1
+    val temp_weight = System.currentTimeMillis() - startTime
+    accumlative_update_wiegth += temp_weight
+    average_update_wiegth = accumlative_update_wiegth / count_updates
+    logger.info(s"Average update weights cost so far is ${average_update_wiegth} ms")
   }
 
   private def update0(grad: Gradient, weight: DenseVector): Unit = {
