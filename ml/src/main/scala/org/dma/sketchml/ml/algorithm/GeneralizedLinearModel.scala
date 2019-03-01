@@ -58,7 +58,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       .countWindowAll(conf.windowSize)
       .apply(new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
 
-    val paramInit: Int => Gradient = (i: Int) => {
+    val paramInit: Int => Gradient = (_: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
@@ -71,13 +71,10 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       val logger = LoggerFactory.getLogger("Parameter server")
       logger.info("GRADIENT UPDATED ON THE SERVER")
       val updateStart = System.currentTimeMillis()
-      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
       newGrad.timesBy(0.5)
       val compressedGradient = Gradient.compress(newGrad, update.conf)
       logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
-      //the evaluateCompression is already called in Gradient class inside compress function
-      //Gradient.evaluateCompression(newGrad, compressedGradient)
-
       compressedGradient
     }
 

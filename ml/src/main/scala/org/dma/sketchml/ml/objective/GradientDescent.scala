@@ -22,9 +22,9 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
   var epoch: Int = 0
   var batch: Int = 0
   val batchNum: Double = Math.ceil(1.0 / batchSpRatio).toInt
-  var count_updates_Gradient = 0.0
-  var accumlative_update_wiegth_Gradient = 0.0
-  var average_update_wiegth_Gradient = 0.0
+  var count_updates_gradient = 0.0
+  var accumulative_update_weight_gradient = 0.0
+  var average_update_weight_gradient = 0.0
 
   def miniBatchGradientDescent(weight: DenseVector, dataSet: DataSet, loss: Loss): (Gradient, Int, Double, Double) = {
     if (dataSet == null) {
@@ -52,9 +52,9 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
       l2Reg(grad, weight, loss.getRegParam)
     val regLoss = loss.getReg(weight)
 
-//    logger.info(s"Epoch[$epoch] batch $batch gradient " +
-//      s"cost ${System.currentTimeMillis() - startTime} ms, "
-//      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
+    //    logger.info(s"Epoch[$epoch] batch $batch gradient " +
+    //      s"cost ${System.currentTimeMillis() - startTime} ms, "
+    //      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
     batch += 1
     if (batch == batchNum) {
       epoch += 1
@@ -113,12 +113,12 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
     }
 
 
-    //Calcualte the average update wieght instead of calculating weight for each single update
-    count_updates_Gradient += 1
+    //Calculate the average update weight instead of calculating weight for each single update
+    count_updates_gradient += 1
     val temp_weight = System.currentTimeMillis() - startTime
-    accumlative_update_wiegth_Gradient += temp_weight
-    average_update_wiegth_Gradient = accumlative_update_wiegth_Gradient / count_updates_Gradient
-    logger.info(s"Average update weights cost so far is ${average_update_wiegth_Gradient} ms")
+    accumulative_update_weight_gradient += temp_weight
+    average_update_weight_gradient = accumulative_update_weight_gradient / count_updates_gradient
+    logger.info(s"Average update weights cost so far is $average_update_weight_gradient ms")
 
   }
 
