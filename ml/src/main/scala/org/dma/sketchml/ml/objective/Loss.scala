@@ -4,6 +4,10 @@ import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
 
 import org.dma.sketchml.ml.util.Maths
 
+import scala.math.pow
+
+import scala.math.sqrt
+
 @SerialVersionUID(1113799434508676045L)
 trait Loss extends Serializable {
 
@@ -54,10 +58,14 @@ abstract class L2Loss extends Loss {
 
   override def getRegParam: Double = lambda
 
+  def secondtNorm (data: Vector): Double = {
+    sqrt(data.map(x => x._2 * x._2).sum)
+  }
+
   override def getReg(w: Vector): Double = {
     if (isL2Reg)
       //Vectors.norm(w, 2) * lambda
-      w.magnitude * lambda
+      this.secondtNorm(w) * lambda
     else
       0.0
   }
