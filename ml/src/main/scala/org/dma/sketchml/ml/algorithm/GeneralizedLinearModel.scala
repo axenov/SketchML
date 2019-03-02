@@ -62,7 +62,6 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
-
     /**
       * This could be potentially improved if custom server logic is implemented. Then we could compress the gradient
       * on the real pull only, not after every update.
@@ -79,6 +78,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       //Gradient.evaluateCompression(newGrad, compressedGradient)
 
       //training process up to compression and update
+
       logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
 
       compressedGradient
