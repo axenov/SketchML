@@ -1,7 +1,5 @@
 package org.dma.sketchml.ml.parameterserver
 
-import java.util.concurrent.Semaphore
-
 import hu.sztaki.ilab.ps.{ParameterServerClient, WorkerLogic}
 import org.apache.flink.ml.math.DenseVector
 import org.dma.sketchml.ml.conf.MLConf
@@ -52,9 +50,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
 
   override def onPullRecv(paramId: Int, paramValue: Gradient, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     logger.info("ON PULL RECV")
-    if (paramValue == Gradient.zero) {
-      return
-    }
     optimizer.update(paramValue, weights)
     logger.info("END ON PULL RECV")
   }

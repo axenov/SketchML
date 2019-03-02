@@ -4,18 +4,17 @@ import org.apache.flink.ml.math.{DenseVector, SparseVector, Vector}
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
-import org.dma.sketchml.ml.util.Maths
 import org.dma.sketchml.sketch.base.SketchMLException
 import org.dma.sketchml.sketch.util.Utils
 import org.slf4j.{Logger, LoggerFactory}
 
 object Gradient {
-  var count_updates_Gradient = 0.0
-  var accumlative_update_wiegth_Gradient = 0.0
-  var average_update_wiegth_Gradient = 0.0
+  var count_updates_gradient = 0.0
+  var accumulative_update_weight_gradient = 0.0
+  var average_update_weight_gradient = 0.0
 
-  var accumlative_sizeOrig = 0.0
-  var accumlative_sizeComp = 0.0
+  var accumulative_size_orig = 0.0
+  var accumulative_size_comp = 0.0
   var total_rate = 0.0
 
   private def logger: Logger = LoggerFactory.getLogger(Gradient.getClass)
@@ -69,14 +68,14 @@ object Gradient {
 
     // To calculate message size
     val sizeOrig = Utils.sizeof(origin)
-    accumlative_sizeOrig += sizeOrig
+    accumulative_size_orig += sizeOrig
     val sizeComp = Utils.sizeof(comp)
-    accumlative_sizeComp += sizeComp
+    accumulative_size_comp += sizeComp
     val rate = 1.0 * sizeOrig / sizeComp
-    total_rate = 1.0 * accumlative_sizeOrig / accumlative_sizeComp
+    total_rate = 1.0 * accumulative_size_orig / accumulative_size_comp
     //logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
     //  s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
-    logger.info(s"current origin message size[$accumlative_sizeOrig bytes], current comp message size [$accumlative_sizeComp bytes], Total Compression rate[$total_rate]")
+    logger.info(s"current origin message size[$accumulative_size_orig bytes], current comp message size [$accumulative_size_comp bytes], Total Compression rate[$total_rate]")
   }
 }
 
