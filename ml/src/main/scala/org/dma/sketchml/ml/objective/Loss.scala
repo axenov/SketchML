@@ -56,16 +56,15 @@ abstract class L2Loss extends Loss {
 
   def isL2Reg: Boolean = lambda > Maths.EPS
 
-  override def getRegParam: Double = lambda
-
-  def secondtNorm (data: Vector): Double = {
+  def secondNorm (data: Vector): Double = {
     sqrt(data.map(x => x._2 * x._2).sum)
   }
 
+  override def getRegParam: Double = lambda
+
   override def getReg(w: Vector): Double = {
     if (isL2Reg)
-      //Vectors.norm(w, 2) * lambda
-      this.secondtNorm(w) * lambda
+      this.secondNorm(w) * lambda
     else
       0.0
   }

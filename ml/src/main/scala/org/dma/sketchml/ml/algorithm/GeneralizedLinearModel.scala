@@ -78,6 +78,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       //the evaluateCompression is already called in Gradient class inside compress function
       //Gradient.evaluateCompression(newGrad, compressedGradient)
 
+      //training process up to compression and update
+      logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
+
       compressedGradient
     }
 

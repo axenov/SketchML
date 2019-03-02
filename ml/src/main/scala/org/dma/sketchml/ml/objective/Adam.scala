@@ -26,8 +26,8 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
   val m = new Array[Double](dim)
   val v = new Array[Double](dim)
   var count_updates = 0.0
-  var accumlative_update_wiegth = 0.0
-  var average_update_wiegth = 0.0
+  var accumulative_update_weight = 0.0
+  var average_update_weight = 0.0
 
   override def update(grad: Gradient, weight: DenseVector): Unit = {
     val startTime = System.currentTimeMillis()
@@ -44,9 +44,9 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
     //Calcualte the average update wieght instead of calculating weight for each single update
     count_updates += 1
     val temp_weight = System.currentTimeMillis() - startTime
-    accumlative_update_wiegth += temp_weight
-    average_update_wiegth = accumlative_update_wiegth / count_updates
-    logger.info(s"Average update weights cost so far is ${average_update_wiegth} ms")
+    accumulative_update_weight += temp_weight
+    average_update_weight = accumulative_update_weight / count_updates
+    logger.info(s"Average update weights cost so far is ${average_update_weight} ms")
   }
 
   private def update0(grad: Gradient, weight: DenseVector): Unit = {
