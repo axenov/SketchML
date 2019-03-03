@@ -12,7 +12,7 @@ import org.slf4j.{Logger, LoggerFactory}
 object ValidationUtil extends Serializable {
   private val logger: Logger = LoggerFactory.getLogger(ValidationUtil.getClass)
 
-  def calLossPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int) = {
+  def calLossPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int, Double, Double, Double) = {
     val validStart = System.currentTimeMillis()
     val validNum = validData.size
     var validLoss = 0.0
@@ -37,13 +37,10 @@ object ValidationUtil extends Serializable {
     val precision = 1.0 * (truePos + trueNeg) / validNum
     val trueRecall = 1.0 * truePos / (truePos + falseNeg)
     val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
-    logger.info(s"validation cost ${System.currentTimeMillis() - validStart} ms, "
-      + s"loss=$validLoss, precision=$precision, "
-      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum)
+    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall)
   }
 
-  def calLossAucPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int) = {
+  def calLossAucPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int, Double, Double, Double, Double) = {
     val validStart = System.currentTimeMillis()
     val validNum = validData.size
     var validLoss = 0.0
@@ -83,15 +80,17 @@ object ValidationUtil extends Serializable {
       if (labelsArray(i.toInt) == 1.0)
         sigma += i
     }
-    val aucResult = (sigma - (M + 1) * M / 2) / M / N
+    var aucResult = 0.0
+    if (N!=0 && M!=0) {aucResult = (sigma - (M + 1) * M / 2) / M / N}
 
     val precision = 1.0 * (truePos + trueNeg) / validNum
-    val trueRecall = 1.0 * truePos / (truePos + falseNeg)
-    val falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
 
-    logger.info(s"validation cost ${System.currentTimeMillis() - validStart} ms, "
-      + s"loss=$validLoss, auc=$aucResult, precision=$precision, "
-      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum)
+    var trueRecall = 0.0
+    if ((truePos+falseNeg)!=0) {trueRecall = 1.0 * truePos / (truePos + falseNeg)}
+
+    var falseRecall = 0.0
+    if ((trueNeg + falsePos)!=0) {falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)}
+
+    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall, aucResult)
   }
 }
