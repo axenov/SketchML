@@ -14,7 +14,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss: Loss) extends WorkerLogic[DataSet, Int, Gradient, Gradient] {
   private val logger: Logger = LoggerFactory.getLogger(GradientDistributionWorker.super.getClass)
-
+  val startTimestamp: Long = System.currentTimeMillis()
   var weights: DenseVector = _
   var gradient: Gradient = _
 
@@ -33,6 +33,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
         logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
           + s"loss=$validLoss, auc=$aucResult, precision=$precision, "
           + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+        logger.info(s"PLOT::${System.currentTimeMillis()-startTimestamp},$validLoss,$aucResult")
       }
       }
 
