@@ -26,15 +26,18 @@ object Gradient {
         new SketchGradient(grad, conf.quantBinNum, conf.sketchGroupNum,
           conf.sketchRowNum, conf.sketchColRatio, conf)
       case Constants.GRADIENT_COMPRESSOR_FIXED_POINT =>
-        new FixedPointGradient(grad, conf.fixedPointBitNum)
+        new FixedPointGradient(grad, conf.fixedPointBitNum, conf)
       case Constants.GRADIENT_COMPRESSOR_ZIP =>
-        new ZipGradient(grad, conf.quantBinNum)
+        new ZipGradient(grad, conf.quantBinNum, conf)
       case Constants.GRADIENT_COMPRESSOR_FLOAT =>
         grad.kind match {
-          case Kind.DenseDouble => new DenseFloatGradient(grad)
-          case Kind.SparseDouble => SparseFloatGradient(grad)
+          case Kind.DenseDouble => new DenseFloatGradient(grad, conf)
+          case Kind.SparseDouble => SparseFloatGradient(grad, conf)
         }
-      case Constants.GRADIENT_COMPRESSOR_NONE => grad
+      case Constants.GRADIENT_COMPRESSOR_NONE => {
+        grad.conf = conf
+        grad
+      }
       case _ => throw new SketchMLException(
         "Unrecognizable compressor: " + conf.compressor)
     }
@@ -73,15 +76,14 @@ object Gradient {
     accumulative_size_comp += sizeComp
     val rate = 1.0 * sizeOrig / sizeComp
     total_rate = 1.0 * accumulative_size_orig / accumulative_size_comp
-    logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
-      s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
-    logger.info(s"current origin message size[$accumulative_size_orig bytes], current comp message size [$accumulative_size_comp bytes], Total Compression rate[$total_rate]")
+    logger.info(s"Sizeof gradients: ${vOrig.length},$sizeOrig,$sizeComp,$rate")
+    logger.info(s"current origin message size: $accumulative_size_orig,$accumulative_size_comp,$total_rate]")
   }
 }
 
 
 @SerialVersionUID(1113799434508676069L)
-abstract class Gradient(val dim: Int, val conf: MLConf) extends Serializable {
+abstract class Gradient(val dim: Int, var conf: MLConf) extends Serializable {
   require(dim > 0, s"Dimension is non-positive: $dim")
 
   def plusBy(o: Gradient): Gradient = {

@@ -11,12 +11,12 @@ object FixedPointGradient {
   private val bernoulli = new Bernoulli(0.5)
 }
 
-class FixedPointGradient(d: Int, val numBits: Int, val _conf: MLConf = null) extends Gradient(d, _conf) {
+class FixedPointGradient(d: Int, val numBits: Int, _conf: MLConf = null) extends Gradient(d, _conf) {
   import FixedPointGradient._
 
   require(numBits < 30, s"Bit num out of range: $numBits")
 
-  def this(grad: Gradient, numBits: Int) {
+  def this(grad: Gradient, numBits: Int, conf: MLConf) {
     this(grad.dim, numBits)
     grad.kind match {
       case Kind.DenseDouble => fromDense(grad.asInstanceOf[DenseDoubleGradient])

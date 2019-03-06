@@ -6,10 +6,10 @@ import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.ml.util.Maths
 import org.dma.sketchml.sketch.base.SketchMLException
 
-class DenseFloatGradient(d: Int, val values: Array[Float], val _conf: MLConf = null) extends Gradient(d, _conf) {
+class DenseFloatGradient(d: Int, val values: Array[Float], _conf: MLConf = null) extends Gradient(d, _conf) {
   def this(d: Int) = this(d, new Array[Float](d))
 
-  def this(grad: Gradient) {
+  def this(grad: Gradient, conf: MLConf) {
     this(grad.dim, new Array[Float](grad.dim))
     grad.kind match {
       case Kind.DenseDouble => fromDense(grad.asInstanceOf[DenseDoubleGradient])
