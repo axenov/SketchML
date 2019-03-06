@@ -38,7 +38,7 @@ object Parser extends Serializable {
     val values = new Array[Double](nnz)
     for (i <- 0 until nnz) {
       val kv = splits(i + 1).trim.split(":")
-      indices(i) = kv(0).toInt
+      indices(i) = kv(0).toInt-1
       values(i) = kv(1).toDouble
     }
     val x = SparseVector(maxDim, indices, values)
@@ -60,7 +60,7 @@ object Parser extends Serializable {
     val values = new Array[Double](nnz)
     for (i <- 0 until nnz) {
       val kv = splits(i + 1).trim.split(";")
-      indices(i) = kv(0).toInt
+      indices(i) = kv(0).toInt-1
       values(i) = kv(1).toDouble
     }
     val x = SparseVector(maxDim, indices, values)
