@@ -6,7 +6,7 @@ import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
 import org.dma.sketchml.ml.util.Maths
 
-class DenseDoubleGradient(d: Int, val values: Array[Double], val _conf: MLConf = null) extends Gradient(d, _conf) {
+class DenseDoubleGradient(d: Int, val values: Array[Double], _conf: MLConf = null) extends Gradient(d, _conf) {
   def this(d: Int) = this(d, new Array[Double](d))
 
   override def plusBy(dense: DenseDoubleGradient): Gradient = {

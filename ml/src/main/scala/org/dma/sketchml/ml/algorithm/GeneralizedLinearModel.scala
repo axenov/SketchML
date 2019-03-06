@@ -2,8 +2,9 @@ package org.dma.sketchml.ml.algorithm
 
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.java.tuple.Tuple
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.scala.function.AllWindowFunction
+import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessWindowFunction, WindowFunction}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
@@ -13,6 +14,8 @@ import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.parameterserver.GradientDistributionWorker
 import org.slf4j.{Logger, LoggerFactory}
+
+import scala.util.Random
 
 object GeneralizedLinearModel {
 
@@ -55,8 +58,13 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
     initModel()
 
     val baseLogic: DataStream[DataSet] = dataStream
-      .countWindowAll(conf.windowSize)
-      .apply(new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
+      .map(item => {
+        val key = Random.nextInt(conf.workerNum)
+        (key, item)
+      })(TypeInformation.of(classOf[(Int, LabeledData)]))
+      .keyBy(t => t._1)(TypeInformation.of(classOf[Int]))
+      .countWindow(conf.windowSize)
+      .process[DataSet](new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
 
     val paramInit: Int => Gradient = (i: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
@@ -107,13 +115,15 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 }
 
 @SerialVersionUID(1113799434508676099L)
-class ExtractTrainingData extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
-  override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
+class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
+
+
+  override def process(key: Int, context: Context, elements: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
     val trainData = new DataSet
-    val it = input.iterator
+    val it = elements.iterator
     while (it.hasNext) {
       val item = it.next()
-      trainData.add(item)
+      trainData.add(item._2)
     }
     out.collect(trainData)
   }

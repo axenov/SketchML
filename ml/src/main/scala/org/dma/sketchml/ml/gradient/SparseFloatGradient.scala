@@ -6,7 +6,7 @@ import org.dma.sketchml.ml.util.Maths
 import org.dma.sketchml.sketch.base.SketchMLException
 
 object SparseFloatGradient {
-  def apply(grad: Gradient): SparseFloatGradient = {
+  def apply(grad: Gradient, conf: MLConf): SparseFloatGradient = {
     val (indices, values) = grad.kind match {
       case Kind.DenseDouble => {
         val dense = grad.asInstanceOf[DenseDoubleGradient]
@@ -18,12 +18,12 @@ object SparseFloatGradient {
       }
       case _ => throw new SketchMLException(s"Cannot create ${Kind.SparseFloat} from ${grad.kind}")
     }
-    new SparseFloatGradient(grad.dim, indices, values.map(_.toFloat))
+    new SparseFloatGradient(grad.dim, indices, values.map(_.toFloat), conf)
   }
 }
 
 class SparseFloatGradient(d: Int, val indices: Array[Int],
-                          val values: Array[Float], val _conf: MLConf = null) extends Gradient(d, _conf) {
+                          val values: Array[Float], _conf: MLConf = null) extends Gradient(d, _conf) {
   {
     require(indices.length == values.length,
       s"Sizes of indices and values not match: ${indices.length} & ${values.length}")

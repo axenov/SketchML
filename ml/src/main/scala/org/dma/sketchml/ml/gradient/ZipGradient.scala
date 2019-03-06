@@ -9,12 +9,12 @@ import org.dma.sketchml.sketch.base.{Quantizer, SketchMLException}
 import org.dma.sketchml.sketch.util.Sort
 import org.slf4j.{Logger, LoggerFactory}
 
-class ZipGradient(d: Int, binNum: Int, val _conf: MLConf = null) extends Gradient(d, _conf) {
+class ZipGradient(d: Int, binNum: Int, _conf: MLConf = null) extends Gradient(d, _conf) {
   private var size: Int = 0
   var indices: Array[Int] = _
   var quantizer: ZipMLQuantizer = _
 
-  def this(grad: Gradient, binNum: Int) {
+  def this(grad: Gradient, binNum: Int, conf: MLConf) {
     this(grad.dim, binNum)
     grad.kind match {
       case Kind.DenseDouble => fromDense(grad.asInstanceOf[DenseDoubleGradient])
