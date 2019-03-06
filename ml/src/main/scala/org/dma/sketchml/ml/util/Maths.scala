@@ -67,7 +67,7 @@ object Maths extends Serializable {
     val bValues = b.data
 
     //val size = b.numActives
-    val size = b.size
+    val size = bIndices.length
     var dot = 0.0
     for (i <- 0 until size) {
       val ind = bIndices(i)
