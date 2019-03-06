@@ -27,7 +27,7 @@ object ValidationUtil extends Serializable {
       if (pre * ins.label > 0) {
         if (pre > 0) truePos += 1
         else trueNeg += 1
-      } else if (pre * ins.label < 0) {
+      } else if (pre * ins.label <= 0) {
         if (pre > 0) falsePos += 1
         else falseNeg += 1
       }
@@ -57,7 +57,7 @@ object ValidationUtil extends Serializable {
       if (pre * ins.label > 0) {
         if (pre > 0) truePos += 1
         else trueNeg += 1
-      } else if (pre * ins.label < 0) {
+      } else if (pre * ins.label <= 0) {
         if (pre > 0) falsePos += 1
         else falseNeg += 1
       }
