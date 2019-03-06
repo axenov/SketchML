@@ -73,8 +73,8 @@ object Gradient {
     accumulative_size_comp += sizeComp
     val rate = 1.0 * sizeOrig / sizeComp
     total_rate = 1.0 * accumulative_size_orig / accumulative_size_comp
-    //logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
-    //  s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
+    logger.info(s"Sizeof gradients: nnz[${vOrig.length}], " +
+      s"origin[$sizeOrig bytes], comp[$sizeComp bytes], rate[$rate]")
     logger.info(s"current origin message size[$accumulative_size_orig bytes], current comp message size [$accumulative_size_comp bytes], Total Compression rate[$total_rate]")
   }
 }
