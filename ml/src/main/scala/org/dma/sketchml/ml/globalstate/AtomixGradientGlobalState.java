@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.dma.sketchml.ml.conf.MLConf;
 import org.dma.sketchml.ml.gradient.Gradient;
 
+@Deprecated
 public class AtomixGradientGlobalState implements GradientGlobalState {
   private static final String GRADIENT_BARRIER = "GRADIENT_BARRIER";
   private static final String GRADIENT = "GRADIENT_MESSAGE";

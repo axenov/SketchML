@@ -12,7 +12,7 @@ import org.dma.sketchml.ml.util.Maths
 @SerialVersionUID(1L)
 object Parser extends Serializable {
   def loadStreamData(input: String, format: String, maxDim: Int, numPartition: Int,
-                     negY: Boolean = true)(implicit sc: StreamExecutionEnvironment): DataStream[LabeledData] = {
+                     negY: Boolean = true)(implicit env: StreamExecutionEnvironment): DataStream[LabeledData] = {
     val parse: (String, Int, Boolean) => LabeledData = format match {
       case Constants.FORMAT_LIBSVM => Parser.parseLibSVM
       case Constants.FORMAT_CSV => Parser.parseCSV
@@ -21,7 +21,7 @@ object Parser extends Serializable {
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
     implicit val typeInfo: TypeInformation[LabeledData] = TypeInformation.of(classOf[LabeledData])
-    sc.readTextFile(input).map { line => parse(line, maxDim, negY) }
+    env.readTextFile(input).map { line => parse(line, maxDim, negY) }
   }
 
   def parseLibSVM(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {
@@ -38,7 +38,7 @@ object Parser extends Serializable {
     val values = new Array[Double](nnz)
     for (i <- 0 until nnz) {
       val kv = splits(i + 1).trim.split(":")
-      indices(i) = kv(0).toInt-1
+      indices(i) = kv(0).toInt - 1
       values(i) = kv(1).toDouble
     }
     val x = SparseVector(maxDim, indices, values)
@@ -60,7 +60,8 @@ object Parser extends Serializable {
     val values = new Array[Double](nnz)
     for (i <- 0 until nnz) {
       val kv = splits(i + 1).trim.split(";")
-      indices(i) = kv(0).toInt-1
+      // -1 because in libsvm format features are numbered from 1
+      indices(i) = kv(0).toInt - 1
       values(i) = kv(1).toDouble
     }
     val x = SparseVector(maxDim, indices, values)

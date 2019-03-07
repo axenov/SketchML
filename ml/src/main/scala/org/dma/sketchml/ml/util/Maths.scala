@@ -9,7 +9,7 @@ import scala.math.sqrt
 object Maths extends Serializable {
   val EPS = 1e-8
 
-  def secondNorm (data: Vector): Double = {
+  def secondNorm(data: Vector): Double = {
     sqrt(data.map(x => x._2 * x._2).sum)
   }
 
@@ -115,7 +115,7 @@ object Maths extends Serializable {
     val vb = new DenseVector(b)
     //dot(va, vb) / (Vectors.norm(va, 2) * Vectors.norm(vb, 2))
 
-    dot(va, vb) / (this.secondNorm(va)* this.secondNorm(vb))
+    dot(va, vb) / (this.secondNorm(va) * this.secondNorm(vb))
 
   }
 

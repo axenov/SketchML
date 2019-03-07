@@ -1,14 +1,11 @@
 package org.dma.sketchml.ml.algorithm
 
-import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
-import org.apache.flink.ml.math.DenseVector
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
+import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.objective.{Adam, L2LogLoss}
 import org.slf4j.{Logger, LoggerFactory}
-
-import scala.util.Random
 
 object LRModel {
   private val logger: Logger = LoggerFactory.getLogger(LRModel.getClass)

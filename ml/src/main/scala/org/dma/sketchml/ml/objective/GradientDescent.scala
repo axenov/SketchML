@@ -17,7 +17,7 @@ object GradientDescent {
 
 @SerialVersionUID(1113799434508676043L)
 class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) extends Serializable {
-  protected val logger = GradientDescent.logger
+  protected val logger: Logger = GradientDescent.logger
 
   var epoch: Int = 0
   var batch: Int = 0

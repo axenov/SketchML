@@ -2,9 +2,8 @@ package org.dma.sketchml.ml.algorithm
 
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.java.tuple.Tuple
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessWindowFunction, WindowFunction}
+import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
@@ -20,14 +19,8 @@ import scala.util.Random
 object GeneralizedLinearModel {
 
   object Model {
-    var weights: DenseVector = _
     var optimizer: GradientDescent = _
     var loss: Loss = _
-    var gradient: Gradient = _
-  }
-
-  object Data {
-    var validationData: DataSet = _
   }
 
 }
@@ -49,6 +42,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
   protected def initModel(): Unit
 
+  /**
+    * Main method responsible for running training on streaming data.
+    */
   def train(): Unit = {
 
     logger.info(s"Start to train a $getName model")
@@ -57,6 +53,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
     val startTime = System.currentTimeMillis()
     initModel()
 
+    /**
+      * Splitting incoming data into windows and extracting it to training data.
+      */
     val baseLogic: DataStream[DataSet] = dataStream
       .map(item => {
         val key = Random.nextInt(conf.workerNum)
@@ -66,13 +65,16 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       .countWindow(conf.windowSize)
       .process[DataSet](new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
 
+    /**
+      * First gradient initialization on the server - called on first pull request.
+      */
     val paramInit: Int => Gradient = (i: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       new DenseFloatGradient(conf.featureNum)
     }
+
     /**
-      * This could be potentially improved if custom server logic is implemented. Then we could compress the gradient
-      * on the real pull only, not after every update.
+      * Logic used on the server when it receives gradient update.
       */
     val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
       val logger = LoggerFactory.getLogger("Parameter server")
@@ -81,25 +83,28 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
       newGrad.timesBy(0.5)
       val compressedGradient = Gradient.compress(newGrad, update.conf)
+
       logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
-      //the evaluateCompression is already called in Gradient class inside compress function
-      //Gradient.evaluateCompression(newGrad, compressedGradient)
-
-      //training process up to compression and update
-
       logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
 
       compressedGradient
     }
 
+    /**
+      * Logic used by each of the workers, defines behavior regarding receiving new data from incoming stream and data
+      * received from the server as an answer to pull.
+      */
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
 
-    // move this parameters to ParameterTool once it's confirmed everything works fine here
+    // It's necessary to have only one copy of centralized gradient, thus we can only have 1 instance of the server.
     val psParallelism: Int = 1
 
     // It has to be 0, otherwise pulls are never received by the worker
     val iterationWaitTime: Long = 0
 
+    /**
+      * Parameter server API used to start the whole process.
+      */
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
       gradientUpdate, conf.workerNum, psParallelism, iterationWaitTime)(TypeInformation.of(classOf[DataSet]),
       TypeInformation.of(classOf[Int]),
@@ -117,6 +122,9 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 @SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
 
+  /**
+    * Groups incoming LabeledData into DataSet.
+    */
   override def process(key: Int, context: Context, elements: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
     val trainData = new DataSet
     val it = elements.iterator
