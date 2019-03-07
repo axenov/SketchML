@@ -83,11 +83,11 @@ object Maths extends Serializable {
     val aIndices = a.indices
     val aValues = a.data
     //val aNumActives = a.numActives
-    val aNumActives = a.size
+    val aNumActives = a.indices.length
     val bIndices = b.indices
     val bValues = b.data
     //val bNumActives = b.numActives
-    val bNumActives = b.size
+    val bNumActives = b.indices.length
     var aOff = 0
     var bOff = 0
     var dot = 0.0

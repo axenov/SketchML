@@ -11,12 +11,12 @@ object Adam {
   private val logger: Logger = LoggerFactory.getLogger(Adam.getClass)
 
   def apply(conf: MLConf): GradientDescent =
-    new Adam(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchSpRatio)
+    new Adam(conf.featureNum, conf.learnRate, conf.learnDecay)
 
 }
 
-class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
-  extends GradientDescent(dim, lr_0, decay, batchSpRatio) {
+class Adam(dim: Int, lr_0: Double, decay: Double)
+  extends GradientDescent(dim, lr_0, decay) {
   override protected val logger: Logger = Adam.logger
 
   val beta1 = 0.9
@@ -37,8 +37,6 @@ class Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
     beta2_t *= beta2
 
     update0(grad, weight)
-
-
 
     //logger.info(s"Update weight cost ${System.currentTimeMillis() - startTime} ms")
     //Calcualte the average update wieght instead of calculating weight for each single update

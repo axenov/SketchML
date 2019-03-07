@@ -53,17 +53,14 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val (grad, _, _, _) =
       optimizer.miniBatchGradientDescent(weights, data, loss)
 
-    if (gradient == null) {
-      gradient = grad
-    } else {
-      gradient = Gradient.sum(conf.featureNum, Array(gradient, grad))
-      gradient.timesBy(0.5)
-    }
+    gradient = grad
+
     optimizer.update(gradient, weights)
     logger.info(s"Calculation of local gradient and weights cost ${System.currentTimeMillis() - miniBathStart} ms")
-
     // push new value to the server
-    ps.push(1, Gradient.compress(gradient, conf))
+    val compressedGradient = Gradient.compress(gradient, conf)
+
+    ps.push(1, compressedGradient)
     logger.info("END OF WINDOW")
   }
 
