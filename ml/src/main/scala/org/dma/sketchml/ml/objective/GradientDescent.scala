@@ -45,6 +45,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
     }
     val grad = denseGrad.toAuto
     grad.timesBy(1.0 / batchSize)
+    objLoss=objLoss / batchSize
 
     if (loss.isL1Reg)
       l1Reg(grad, 0, loss.getRegParam)
@@ -101,7 +102,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Doubl
 
   def update(grad: Gradient, weight: DenseVector): Unit = {
     val startTime = System.currentTimeMillis()
-    val lr = lr_0 / Math.sqrt(1.0 + decay * epoch)
+    val lr = lr_0// / Math.sqrt(1.0 + decay * epoch)
     grad match {
       case dense: DenseDoubleGradient => update(dense, weight, lr)
       case sparse: SparseDoubleGradient => update(sparse, weight, lr)

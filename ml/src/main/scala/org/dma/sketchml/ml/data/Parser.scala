@@ -34,13 +34,15 @@ object Parser extends Serializable {
       y = -1
 
     val nnz = splits.length - 1
-    val indices = new Array[Int](nnz)
-    val values = new Array[Double](nnz)
+    val indices = new Array[Int](nnz+1)
+    val values = new Array[Double](nnz+1)
     for (i <- 0 until nnz) {
       val kv = splits(i + 1).trim.split(":")
       indices(i) = kv(0).toInt - 1
       values(i) = kv(1).toDouble
     }
+    values(nnz) = 1
+    indices(nnz) =maxDim-1
     val x = SparseVector(maxDim, indices, values)
 
     LabeledData(y, x)

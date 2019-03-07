@@ -22,7 +22,7 @@ object MLConf {
   val ML_BATCH_SAMPLE_RATIO: String = "flink.sketchml.batch.sample.ratio"
   val DEFAULT_ML_BATCH_SAMPLE_RATIO: Double = 0.1
   val ML_LEARN_RATE: String = "flink.sketchml.learn.rate"
-  val DEFAULT_ML_LEARN_RATE: Double = 0.1
+  val DEFAULT_ML_LEARN_RATE: Double = 0.01
   val ML_LEARN_DECAY: String = "flink.sketchml.learn.decay"
   val DEFAULT_ML_LEARN_DECAY: Double = 0.9
   val ML_REG_L1: String = "flink.sketchml.reg.l1"
@@ -53,7 +53,7 @@ object MLConf {
     parameters.get(ML_INPUT_PATH),
     parameters.get(ML_INPUT_FORMAT),
     parameters.get(ML_NUM_WORKER).toInt,
-    parameters.get(ML_NUM_FEATURE).toInt,
+    parameters.get(ML_NUM_FEATURE).toInt+1,
     parameters.getDouble(ML_VALID_RATIO, DEFAULT_ML_VALID_RATIO),
     parameters.getInt(ML_EPOCH_NUM, DEFAULT_ML_EPOCH_NUM),
     parameters.getDouble(ML_BATCH_SAMPLE_RATIO, DEFAULT_ML_BATCH_SAMPLE_RATIO),

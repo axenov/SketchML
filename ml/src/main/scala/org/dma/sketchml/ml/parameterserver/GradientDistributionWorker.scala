@@ -35,32 +35,29 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
         scala.util.Random.nextDouble() * 0.001
       })
     }
-
     // validation on new window before it is used to training
     val validStart = System.currentTimeMillis()
-    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall, aucResult) = ValidationUtil.calLossAucPrecision(weights, data, loss)
+    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
     val model: Unit = conf.algo match {
       case Constants.ML_LINEAR_REGRESSION => logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"valid size=$validNum, loss=$validLoss")
       case _ =>
         logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
-          + s"loss=$validLoss, auc=$aucResult, precision=$precision, "
+          + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, "
           + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-        logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult")
+        logger.info(s"PLOT::${System.currentTimeMillis()-startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")
     }
 
     // training
     val miniBathStart = System.currentTimeMillis()
-    val (grad, _, _, _) =
-      optimizer.miniBatchGradientDescent(weights, data, loss)
 
-    if (gradient == null) {
+    // How many times train gradient on one window
+    for( a <- 1 to 1) {
+      val (grad, _, _, _) =
+      optimizer.miniBatchGradientDescent(weights, data, loss)
       gradient = grad
-    } else {
-      gradient = Gradient.sum(conf.featureNum, Array(gradient, grad))
-      gradient.timesBy(0.5)
+      optimizer.update(gradient, weights)
     }
-    optimizer.update(gradient, weights)
-    logger.info(s"Calculation of local gradient and weights cost ${System.currentTimeMillis() - miniBathStart} ms")
+      logger.info(s"Calculation of local gradient and weights cost ${System.currentTimeMillis() - miniBathStart} ms")
 
     // push new value to the server
     ps.push(1, Gradient.compress(gradient, conf))
