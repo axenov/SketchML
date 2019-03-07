@@ -78,7 +78,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       val logger = LoggerFactory.getLogger("Parameter server")
       logger.info("GRADIENT UPDATED ON THE SERVER")
       val updateStart = System.currentTimeMillis()
-      var newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
       newGrad.timesBy(0.5)
       val compressedGradient = Gradient.compress(newGrad, update.conf)
       logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
@@ -97,7 +97,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
     // move this parameters to ParameterTool once it's confirmed everything works fine here
     val psParallelism: Int = 1
 
-    // It has to be 0, otherwise pulls are never recevied by the worker
+    // It has to be 0, otherwise pulls are never received by the worker
     val iterationWaitTime: Long = 0
 
     FlinkParameterServer.transform[DataSet, Int, Gradient, Gradient](baseLogic, workerLogic, paramInit,
@@ -116,7 +116,6 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
 @SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
-
 
   override def process(key: Int, context: Context, elements: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
     val trainData = new DataSet

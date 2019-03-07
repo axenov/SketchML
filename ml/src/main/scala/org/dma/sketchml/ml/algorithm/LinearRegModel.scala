@@ -21,7 +21,6 @@ class LinearRegModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Ge
   @transient override protected val logger: Logger = LinearRegModel.logger
 
   override protected def initModel(): Unit = {
-    weights = new DenseVector(new Array[Double](_conf.featureNum))
     optimizer = Adam(_conf)
     loss = new L2SquareLoss(_conf.l2Reg)
   }

@@ -2,14 +2,12 @@ package org.dma.sketchml.ml.parameterserver
 
 import hu.sztaki.ilab.ps.{ParameterServerClient, WorkerLogic}
 import org.apache.flink.ml.math.DenseVector
-import org.dma.sketchml.ml.algorithm.{LRModel, LinearRegModel, SVMModel}
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.DataSet
 import org.dma.sketchml.ml.gradient.Gradient
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.util.ValidationUtil
-import org.dma.sketchml.ml.util.ValidationUtil.logger
 import org.slf4j.{Logger, LoggerFactory}
 
 class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss: Loss) extends WorkerLogic[DataSet, Int, Gradient, Gradient] {
@@ -22,21 +20,20 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     ps.pull(1)
     logger.info("ON NEW WINDOW")
     if (weights == null) {
-      weights = new DenseVector(new Array[Double](conf.featureNum))
+      weights = new DenseVector(Array.fill(conf.featureNum) {
+        scala.util.Random.nextDouble() * 0.001
+      })
     }
     val validStart = System.currentTimeMillis()
     val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall, aucResult) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    val model = conf.algo match {
-      case Constants.ML_LINEAR_REGRESSION =>  logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"valid size=$validNum, loss=$validLoss")
+    val model: Unit = conf.algo match {
+      case Constants.ML_LINEAR_REGRESSION => logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"valid size=$validNum, loss=$validLoss")
       case _ =>
-      {
         logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
           + s"loss=$validLoss, auc=$aucResult, precision=$precision, "
           + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-        logger.info(s"PLOT::${System.currentTimeMillis()-startTimestamp},$validLoss,$aucResult")
-      }
-      }
-
+        logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult")
+    }
 
 
     val miniBathStart = System.currentTimeMillis()

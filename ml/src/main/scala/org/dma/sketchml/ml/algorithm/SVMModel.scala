@@ -20,7 +20,6 @@ class SVMModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Generali
   @transient override protected val logger: Logger = SVMModel.logger
 
   override protected def initModel(): Unit = {
-    weights = new DenseVector(new Array[Double](_conf.featureNum))
     optimizer = Adam(_conf)
     loss = new L2HingeLoss(_conf.l2Reg)
   }

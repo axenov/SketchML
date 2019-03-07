@@ -8,6 +8,8 @@ import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.objective.{Adam, L2LogLoss}
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.util.Random
+
 object LRModel {
   private val logger: Logger = LoggerFactory.getLogger(LRModel.getClass)
 
@@ -20,9 +22,6 @@ class LRModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Generaliz
   @transient override protected val logger: Logger = LRModel.logger
 
   override protected def initModel(): Unit = {
-    weights = new DenseVector(new Array[Double](_conf.featureNum))
-
-
     optimizer = Adam(_conf)
     loss = new L2LogLoss(_conf.l2Reg)
   }
