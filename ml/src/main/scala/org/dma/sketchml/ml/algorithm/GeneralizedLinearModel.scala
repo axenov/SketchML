@@ -2,7 +2,7 @@ package org.dma.sketchml.ml.algorithm
 
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessAllWindowFunction, ProcessWindowFunction}
+import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessAllWindowFunction, ProcessWindowFunction, WindowFunction}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
@@ -12,6 +12,8 @@ import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.parameterserver.{GradientDistributionWorker, GradientServerLogic}
 import org.slf4j.{Logger, LoggerFactory}
+
+import scala.util.Random
 
 object GeneralizedLinearModel {
 
@@ -56,9 +58,13 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       * Splitting incoming data into windows and extracting it to training data.
       */
     val baseLogic: DataStream[DataSet] = dataStream
-      .countWindowAll(conf.windowSize)
-      .apply(new ExtractTrainingDataWindowAll)(TypeInformation.of(classOf[DataSet]))
-
+            .map(item => {
+              val key = Random.nextInt(conf.workerNum)
+              (key, item)
+            })(TypeInformation.of(classOf[(Int, LabeledData)]))
+            .keyBy(t => t._1)(TypeInformation.of(classOf[Int]))
+      .countWindow(conf.windowSize)
+      .apply(new ExtractTrainingDataWindowFunction)(TypeInformation.of(classOf[DataSet]))
 
     /**
       * First gradient initialization on the server - called on first pull request.
@@ -113,8 +119,12 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
 }
 
-@SerialVersionUID(1113799434508676094L)
+@SerialVersionUID(1113799434508676095L)
 class ExtractTrainingDataWindowAll extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
+
+  /**
+    * Groups incoming LabeledData into DataSet.
+    */
   override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
     val trainData = new DataSet
     val it = input.iterator
@@ -126,7 +136,6 @@ class ExtractTrainingDataWindowAll extends AllWindowFunction[LabeledData, DataSe
   }
 }
 
-
 @SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
 
@@ -136,6 +145,24 @@ class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), Data
   override def process(key: Int, context: Context, elements: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
     val trainData = new DataSet
     val it = elements.iterator
+    while (it.hasNext) {
+      val item = it.next()
+      trainData.add(item._2)
+    }
+    out.collect(trainData)
+  }
+}
+
+
+@SerialVersionUID(1113799434508676012L)
+class ExtractTrainingDataWindowFunction extends WindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
+
+  /**
+    * Groups incoming LabeledData into DataSet.
+    */
+  override def apply(key: Int, window: GlobalWindow, input: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
+    val trainData = new DataSet
+    val it = input.iterator
     while (it.hasNext) {
       val item = it.next()
       trainData.add(item._2)
