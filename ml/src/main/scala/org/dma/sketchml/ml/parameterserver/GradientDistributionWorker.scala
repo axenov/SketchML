@@ -23,8 +23,11 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     * @param ps
     * Interface to parameter server.
     */
+  // Validation time per each window and its accumaltive after each window
+
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
     // request pull from the server - it's asynchronous, we do not wait for the answer
+    val startWindowTimestamp: Long = System.currentTimeMillis()
     ps.pull(1)
     logger.info("ON NEW WINDOW")
 
@@ -40,7 +43,7 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
       + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, "
       + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")
+    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")// To calculate the computation and update local gradient time
     // training
     val miniBathStart = System.currentTimeMillis()
 
@@ -51,10 +54,11 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
       gradient = grad
       optimizer.update(gradient, weights)
     }
-    logger.info(s"Calculation of local gradient and weights cost ${System.currentTimeMillis() - miniBathStart} ms")
+    logger.info(s"Calculation of local gradient and weights cost (in ms): ${System.currentTimeMillis() - miniBathStart}")
 
     // push new value to the server
     ps.push(1, Gradient.compress(gradient, conf))
+    logger.info(s"RunTime Per window costs (in ms): ${System.currentTimeMillis() - startWindowTimestamp}")
     logger.info("END OF WINDOW")
   }
 
