@@ -72,7 +72,8 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
     val paramInit: Int => Gradient = (i: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
       var weights= new DenseDoubleGradient(conf.featureNum)
-      weights.plusBy(new DenseVector(Array.fill(conf.featureNum) { scala.util.Random.nextDouble() * 0.001}),1)
+      //************* Random initialization 
+      //weights.plusBy(new DenseVector(Array.fill(conf.featureNum) { scala.util.Random.nextDouble() * 0.001}),1)
       weights
     }
 
@@ -85,7 +86,23 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
       logger.info("WEIGHTS UPDATE")
       val weights = weightsInGradient.toDense.values
-      optimizer.update(update,new DenseVector(weights))
+      // ************* Not Adam update
+      val decompressedGradient = update.toAuto
+      if (decompressedGradient.kind.equals(Kind.DenseDouble)) {
+        val g = decompressedGradient.asInstanceOf[DenseDoubleGradient].values
+        for (i <- weights.indices) {
+          weights(i) -= g(i) * update.conf.learnRate
+        }
+
+      } else {
+        val k = decompressedGradient.asInstanceOf[SparseDoubleGradient].indices
+        val v = decompressedGradient.asInstanceOf[SparseDoubleGradient].values
+        for (i <- k.indices)
+          weights(k(i)) -= v(i) * update.conf.learnRate
+
+      }
+      //************* Adam update
+      // optimizer.update(update,new DenseVector(weights))
       logger.info("END OF WEIGHTS UPDATE")
       logger.info(s"Weights update cost (in ms): ${System.currentTimeMillis() - updateStartTime}")
 

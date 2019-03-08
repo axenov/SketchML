@@ -80,7 +80,6 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val startPullRecv: Long = System.currentTimeMillis()
     logger.info("ON PULL RECV")
 
-
     if (unpredictedData.isEmpty) {
       return
     }
@@ -88,14 +87,17 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val data = unpredictedData.dequeue()
     val weights = new DenseVector(paramValue.toDense.values)
 
-    val validStart = System.currentTimeMillis()
-        val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "+ s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, " + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision") // To calculate the computation and update local gradient time
-
+    val gradStart = System.currentTimeMillis()
     val (grad, _, _, _) = optimizer.miniBatchGradientDescent(weights, data, loss)
     ps.push(1, Gradient.compress(grad, conf))
+    logger.info(s"RunTime Per window costs (in ms):${System.currentTimeMillis() - startPullRecv},")
+
+    val validStart: Long = System.currentTimeMillis()
+    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
+    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "+ s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, " + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision") // To calculate the computation and update local gradient time
     logger.info("END ON PULL RECV")
-    logger.info(s"RunTime Per window processing costs (in ms): ${System.currentTimeMillis() - startPullRecv}")
+
+
   }
 }
