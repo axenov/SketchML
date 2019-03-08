@@ -21,6 +21,8 @@ object MLConf {
   //val DEFAULT_ML_EPOCH_NUM: Int = 100
   val ML_BATCH_NUM: String = "flink.sketchml.batch.sample.ratio"
   val DEFAULT_ML_BATCH_NUM: Double = 5
+  val ML_WINDOW_ITERATIONS_NUM: String = "flink.sketchml.window.iterations"
+  val DEFAULT_ML_WINDOW_ITERATIONS_NUM: Int = 1
   val ML_LEARN_RATE: String = "flink.sketchml.learn.rate"
   val DEFAULT_ML_LEARN_RATE: Double = 0.1
   val ML_LEARN_DECAY: String = "flink.sketchml.learn.decay"
@@ -53,10 +55,11 @@ object MLConf {
     parameters.get(ML_INPUT_PATH),
     parameters.get(ML_INPUT_FORMAT),
     parameters.get(ML_NUM_WORKER).toInt,
-    parameters.get(ML_NUM_FEATURE).toInt+1,
+    parameters.get(ML_NUM_FEATURE).toInt + 1,
     parameters.getDouble(ML_VALID_RATIO, DEFAULT_ML_VALID_RATIO),
     //parameters.getInt(ML_EPOCH_NUM, DEFAULT_ML_EPOCH_NUM),
     parameters.getDouble(ML_BATCH_NUM, DEFAULT_ML_BATCH_NUM),
+    parameters.getInt(ML_WINDOW_ITERATIONS_NUM, DEFAULT_ML_WINDOW_ITERATIONS_NUM),
     parameters.getDouble(ML_LEARN_RATE, DEFAULT_ML_LEARN_RATE),
     parameters.getDouble(ML_LEARN_DECAY, DEFAULT_ML_LEARN_DECAY),
     parameters.getDouble(ML_REG_L1, DEFAULT_ML_REG_L1),
@@ -74,7 +77,7 @@ object MLConf {
 
 @SerialVersionUID(1113799434508676188L)
 case class MLConf(algo: String, input: String, format: String, workerNum: Int,
-                  featureNum: Int, validRatio: Double, batchNum: Double, //epochNum: Int, batchSpRatio: Double,
+                  featureNum: Int, validRatio: Double, batchNum: Double, windowIterations: Int, //epochNum: Int, batchSpRatio: Double,
                   learnRate: Double, learnDecay: Double, l1Reg: Double, l2Reg: Double,
                   compressor: String, quantBinNum: Int, sketchGroupNum: Int,
                   sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int, windowSize: Int) extends Serializable {

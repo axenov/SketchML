@@ -82,18 +82,26 @@ object ValidationUtil extends Serializable {
         sigma += i
     }
     var aucResult = 0.0
-    if (N!=0 && M!=0) {aucResult = (sigma - (M + 1) * M / 2) / M / N}
+    if (N != 0 && M != 0) {
+      aucResult = (sigma - (M + 1) * M / 2) / M / N
+    }
 
     val accuracy = 1.0 * (truePos + trueNeg) / validNum
 
     var trueRecall = 0.0
-    if ((truePos+falseNeg)!=0) {trueRecall = 1.0 * truePos / (truePos + falseNeg)}
+    if ((truePos + falseNeg) != 0) {
+      trueRecall = 1.0 * truePos / (truePos + falseNeg)
+    }
 
     var falseRecall = 0.0
-    if ((trueNeg + falsePos)!=0) {falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)}
+    if ((trueNeg + falsePos) != 0) {
+      falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+    }
 
     var precision = 0.0
-    if ((truePos + falsePos)!=0) {precision = 1.0 * truePos / (truePos + falsePos)}
+    if ((truePos + falsePos) != 0) {
+      precision = 1.0 * truePos / (truePos + falsePos)
+    }
 
     //logger.info(truePos.toString)
     //logger.info(trueNeg.toString)

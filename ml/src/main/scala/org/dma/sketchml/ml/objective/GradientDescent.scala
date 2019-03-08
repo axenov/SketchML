@@ -45,7 +45,7 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchNumber: Double
     }
     val grad = denseGrad.toAuto
     grad.timesBy(1.0 / batchSize)
-    objLoss=objLoss / batchSize
+    objLoss = objLoss / batchSize
 
     if (loss.isL1Reg)
       l1Reg(grad, 0, loss.getRegParam)
@@ -53,9 +53,6 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchNumber: Double
       l2Reg(grad, weight, loss.getRegParam)
     val regLoss = loss.getReg(weight)
 
-    //    logger.info(s"Epoch[$epoch] batch $batch gradient " +
-    //      s"cost ${System.currentTimeMillis() - startTime} ms, "
-    //      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
     window += 1
     if (window == batchNum) {
       epoch += 1
