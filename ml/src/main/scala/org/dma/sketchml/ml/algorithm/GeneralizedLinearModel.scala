@@ -37,7 +37,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   def loadData(): Unit = {
     //we don't need to check the loading time, as paper skip data loading time
     //val startTime = System.currentTimeMillis()
-    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum, negY = false)(env)
+    dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(env)
     //logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 

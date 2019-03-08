@@ -2,7 +2,6 @@ package org.dma.sketchml.ml.parameterserver
 
 import hu.sztaki.ilab.ps.{ParameterServerClient, WorkerLogic}
 import org.apache.flink.ml.math.DenseVector
-import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.DataSet
 import org.dma.sketchml.ml.gradient.Gradient
@@ -35,32 +34,27 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
         scala.util.Random.nextDouble() * 0.001
       })
     }
-
     // validation on new window before it is used to training
     val validStart = System.currentTimeMillis()
-    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall, aucResult) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    val model: Unit = conf.algo match {
-      case Constants.ML_LINEAR_REGRESSION => logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"valid size=$validNum, loss=$validLoss")
-      case _ =>
-        logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
-          + s"loss=$validLoss, auc=$aucResult, precision=$precision, "
-          + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-        logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult")
-    }
-
+    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
+    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
+      + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, "
+      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")
     // training
     val miniBathStart = System.currentTimeMillis()
-    val (grad, _, _, _) =
-      optimizer.miniBatchGradientDescent(weights, data, loss)
 
-    gradient = grad
-
-    optimizer.update(gradient, weights)
+    // How many times train gradient on one window
+    for (a <- 1 to conf.windowIterations) {
+      val (grad, _, _, _) =
+        optimizer.miniBatchGradientDescent(weights, data, loss)
+      gradient = grad
+      optimizer.update(gradient, weights)
+    }
     logger.info(s"Calculation of local gradient and weights cost ${System.currentTimeMillis() - miniBathStart} ms")
-    // push new value to the server
-    val compressedGradient = Gradient.compress(gradient, conf)
 
-    ps.push(1, compressedGradient)
+    // push new value to the server
+    ps.push(1, Gradient.compress(gradient, conf))
     logger.info("END OF WINDOW")
   }
 

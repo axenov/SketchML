@@ -40,7 +40,7 @@ object ValidationUtil extends Serializable {
     (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall)
   }
 
-  def calLossAucPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int, Double, Double, Double, Double) = {
+  def calLossAucPrecision(weights: Vector, validData: DataSet, loss: Loss): (Double, Int, Int, Int, Int, Int, Double, Double, Double, Double, Double) = {
     val validStart = System.currentTimeMillis()
     val validNum = validData.size
     var validLoss = 0.0
@@ -66,6 +66,7 @@ object ValidationUtil extends Serializable {
       validLoss += loss.loss(pre, ins.label)
     }
 
+    validLoss = validLoss / validNum
     Sort.quickSort(scoresArray, labelsArray, 0, scoresArray.length)
     var M = 0L
     var N = 0L
@@ -81,16 +82,33 @@ object ValidationUtil extends Serializable {
         sigma += i
     }
     var aucResult = 0.0
-    if (N!=0 && M!=0) {aucResult = (sigma - (M + 1) * M / 2) / M / N}
+    if (N != 0 && M != 0) {
+      aucResult = (sigma - (M + 1) * M / 2) / M / N
+    }
 
-    val precision = 1.0 * (truePos + trueNeg) / validNum
+    val accuracy = 1.0 * (truePos + trueNeg) / validNum
 
     var trueRecall = 0.0
-    if ((truePos+falseNeg)!=0) {trueRecall = 1.0 * truePos / (truePos + falseNeg)}
+    if ((truePos + falseNeg) != 0) {
+      trueRecall = 1.0 * truePos / (truePos + falseNeg)
+    }
 
     var falseRecall = 0.0
-    if ((trueNeg + falsePos)!=0) {falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)}
+    if ((trueNeg + falsePos) != 0) {
+      falseRecall = 1.0 * trueNeg / (trueNeg + falsePos)
+    }
 
-    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, precision, trueRecall, falseRecall, aucResult)
+    var precision = 0.0
+    if ((truePos + falsePos) != 0) {
+      precision = 1.0 * truePos / (truePos + falsePos)
+    }
+
+    //logger.info(truePos.toString)
+    //logger.info(trueNeg.toString)
+    //logger.info(falsePos.toString)
+    //logger.info(falseNeg.toString)
+
+
+    (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision)
   }
 }

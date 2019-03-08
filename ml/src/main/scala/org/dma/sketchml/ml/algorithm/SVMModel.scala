@@ -4,7 +4,7 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model.{loss, optimizer}
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
-import org.dma.sketchml.ml.objective.{Adam, L2HingeLoss}
+import org.dma.sketchml.ml.objective.{Adam, GradientDescent, L2HingeLoss}
 import org.slf4j.{Logger, LoggerFactory}
 
 object SVMModel {
