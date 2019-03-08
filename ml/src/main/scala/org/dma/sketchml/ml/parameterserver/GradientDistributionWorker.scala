@@ -38,15 +38,10 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     // validation on new window before it is used to training
     val validStart = System.currentTimeMillis()
     val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    val model: Unit = conf.algo match {
-      case Constants.ML_LINEAR_REGRESSION => logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"valid size=$validNum, loss=$validLoss")
-      case _ =>
         logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
           + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, "
           + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
         logger.info(s"PLOT::${System.currentTimeMillis()-startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")
-    }
-
     // training
     val miniBathStart = System.currentTimeMillis()
 
