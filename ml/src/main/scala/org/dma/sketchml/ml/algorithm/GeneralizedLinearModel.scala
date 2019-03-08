@@ -2,7 +2,7 @@ package org.dma.sketchml.ml.algorithm
 
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
+import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessAllWindowFunction, ProcessWindowFunction}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
@@ -12,8 +12,6 @@ import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.parameterserver.{GradientDistributionWorker, GradientServerLogic}
 import org.slf4j.{Logger, LoggerFactory}
-
-import scala.util.Random
 
 object GeneralizedLinearModel {
 
@@ -58,13 +56,32 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       * Splitting incoming data into windows and extracting it to training data.
       */
     val baseLogic: DataStream[DataSet] = dataStream
-      .map(item => {
-        val key = Random.nextInt(conf.workerNum)
-        (key, item)
-      })(TypeInformation.of(classOf[(Int, LabeledData)]))
-      .keyBy(t => t._1)(TypeInformation.of(classOf[Int]))
-      .countWindow(conf.windowSize)
-      .process[DataSet](new ExtractTrainingData)(TypeInformation.of(classOf[DataSet]))
+      .countWindowAll(conf.windowSize)
+      .apply(new ExtractTrainingDataWindowAll)(TypeInformation.of(classOf[DataSet]))
+
+
+    /**
+      * First gradient initialization on the server - called on first pull request.
+      */
+    val paramInit: Int => Gradient = (i: Int) => {
+      LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
+      new DenseFloatGradient(conf.featureNum)
+    }
+
+    /**
+      * Logic used on the server when it receives gradient update.
+      */
+    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
+      val logger = LoggerFactory.getLogger("Parameter server")
+      logger.info("GRADIENT UPDATED ON THE SERVER")
+      val updateStart = System.currentTimeMillis()
+      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
+
+      logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
+      logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
+
+      newGrad
+    }
 
     /**
       * Logic used by each of the workers, defines behavior regarding receiving new data from incoming stream and data
@@ -92,32 +109,23 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
     logger.info(s"Training run time is ${System.currentTimeMillis() - startTime} ms")
   }
 
-  /**
-    * First gradient initialization on the server - called on first pull request.
-    */
-  def paramInit: Int => Gradient = (i: Int) => {
-    LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
-    new DenseFloatGradient(conf.featureNum)
-  }
-
-  /**
-    * Logic used on the server when it receives gradient update.
-    */
-  def gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
-    val logger = LoggerFactory.getLogger("Parameter server")
-    logger.info("GRADIENT UPDATED ON THE SERVER")
-    val updateStart = System.currentTimeMillis()
-    val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
-
-    logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
-    logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
-
-    newGrad
-  }
-
   def getName: String
 
 }
+
+@SerialVersionUID(1113799434508676094L)
+class ExtractTrainingDataWindowAll extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
+  override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
+    val trainData = new DataSet
+    val it = input.iterator
+    while (it.hasNext) {
+      val item = it.next()
+      trainData.add(item)
+    }
+    out.collect(trainData)
+  }
+}
+
 
 @SerialVersionUID(1113799434508676099L)
 class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
