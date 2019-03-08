@@ -2,13 +2,14 @@ package org.dma.sketchml.ml.algorithm
 
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessAllWindowFunction, ProcessWindowFunction, WindowFunction}
+import org.apache.flink.ml.math.DenseVector
+import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessWindowFunction, WindowFunction}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.data.{DataSet, LabeledData, Parser}
-import org.dma.sketchml.ml.gradient.{DenseFloatGradient, Gradient}
+import org.dma.sketchml.ml.gradient.{DenseDoubleGradient, Gradient, Kind, SparseDoubleGradient}
 import org.dma.sketchml.ml.objective.{GradientDescent, Loss}
 import org.dma.sketchml.ml.parameterserver.GradientDistributionWorker
 import org.slf4j.{Logger, LoggerFactory}
@@ -56,44 +57,46 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       * Splitting incoming data into windows and extracting it to training data.
       */
     val baseLogic: DataStream[DataSet] = dataStream
-            .map(item => {
-              val key = Random.nextInt(conf.workerNum)
-              (key, item)
-            })(TypeInformation.of(classOf[(Int, LabeledData)]))
-            .keyBy(t => t._1)(TypeInformation.of(classOf[Int]))
+      .map(item => {
+        val key = Random.nextInt(conf.workerNum)
+        (key, item)
+      })(TypeInformation.of(classOf[(Int, LabeledData)]))
+      .keyBy(t => t._1)(TypeInformation.of(classOf[Int]))
       .countWindow(conf.windowSize)
       .apply(new ExtractTrainingDataWindowFunction)(TypeInformation.of(classOf[DataSet]))
+
 
     /**
       * First gradient initialization on the server - called on first pull request.
       */
     val paramInit: Int => Gradient = (i: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
-      new DenseFloatGradient(conf.featureNum)
+      var weights= new DenseDoubleGradient(conf.featureNum)
+      weights.plusBy(new DenseVector(Array.fill(conf.featureNum) { scala.util.Random.nextDouble() * 0.001}),1)
+      weights
     }
 
     /**
       * Logic used on the server when it receives gradient update.
       */
-    val gradientUpdate: (Gradient, Gradient) => Gradient = (oldGradient: Gradient, update: Gradient) => {
-      val logger = LoggerFactory.getLogger("Parameter server")
-      logger.info("GRADIENT UPDATED ON THE SERVER")
-      val updateStart = System.currentTimeMillis()
-      val newGrad = Gradient.sum(conf.featureNum, Array(oldGradient, update))
-      val compressedGradient = Gradient.compress(newGrad, update.conf)
-      compressedGradient.timesBy(0.5)
+    val gradientUpdate: (Gradient, Gradient) => Gradient = (weightsInGradient: Gradient, update: Gradient) => {
+      val logger = LoggerFactory.getLogger("PARAMETER SERVER")
+      val updateStartTime = System.currentTimeMillis()
 
-      logger.info(s"Update and compression of gradient on the server cost ${System.currentTimeMillis() - updateStart} ms")
-      logger.info(s"Training run time Up to update and compress gradient is ${System.currentTimeMillis() - startTime} ms")
+      logger.info("WEIGHTS UPDATE")
+      val weights = weightsInGradient.toDense.values
+      optimizer.update(update,new DenseVector(weights))
+      logger.info("END OF WEIGHTS UPDATE")
+      logger.info(s"Weights update cost (in ms): ${System.currentTimeMillis() - updateStartTime}")
 
-      compressedGradient
+      new DenseDoubleGradient(weights.length, weights, update.conf)
     }
 
     /**
       * Logic used by each of the workers, defines behavior regarding receiving new data from incoming stream and data
       * received from the server as an answer to pull.
       */
-    val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = new GradientDistributionWorker(conf, optimizer, loss)
+    val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = WorkerLogic.addPullLimiter(new GradientDistributionWorker(conf, optimizer, loss), 1)
 
     // It's necessary to have only one copy of centralized gradient, thus we can only have 1 instance of the server.
     val psParallelism: Int = 1
@@ -134,24 +137,6 @@ class ExtractTrainingDataWindowAll extends AllWindowFunction[LabeledData, DataSe
     out.collect(trainData)
   }
 }
-
-@SerialVersionUID(1113799434508676099L)
-class ExtractTrainingData extends ProcessWindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {
-
-  /**
-    * Groups incoming LabeledData into DataSet.
-    */
-  override def process(key: Int, context: Context, elements: Iterable[(Int, LabeledData)], out: Collector[DataSet]): Unit = {
-    val trainData = new DataSet
-    val it = elements.iterator
-    while (it.hasNext) {
-      val item = it.next()
-      trainData.add(item._2)
-    }
-    out.collect(trainData)
-  }
-}
-
 
 @SerialVersionUID(1113799434508676012L)
 class ExtractTrainingDataWindowFunction extends WindowFunction[(Int, LabeledData), DataSet, Int, GlobalWindow] {

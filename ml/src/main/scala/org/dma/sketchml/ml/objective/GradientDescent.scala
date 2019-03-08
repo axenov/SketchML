@@ -10,18 +10,18 @@ object GradientDescent {
   private val logger: Logger = LoggerFactory.getLogger(GradientDescent.getClass)
 
   def apply(conf: MLConf): GradientDescent =
-    new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchNum)
+    new GradientDescent(conf.featureNum, conf.learnRate, conf.learnDecay, conf.windowIterations)
 
 
 }
 
 @SerialVersionUID(1113799434508676043L)
-class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchNumber: Double) extends Serializable {
+class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double) extends Serializable {
   protected val logger: Logger = GradientDescent.logger
 
   var epoch: Int = 0
-  var window: Int = 0
-  val batchNum: Double = batchNumber //Math.ceil(1.0 / batchSpRatio).toInt
+  var batch: Int = 0
+  val batchNum: Double = Math.ceil(1.0 / batchSpRatio).toInt
   var count_updates_gradient = 0.0
   var accumulative_update_weight_gradient = 0.0
   var average_update_weight_gradient = 0.0
@@ -45,7 +45,6 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchNumber: Double
     }
     val grad = denseGrad.toAuto
     grad.timesBy(1.0 / batchSize)
-    objLoss = objLoss / batchSize
 
     if (loss.isL1Reg)
       l1Reg(grad, 0, loss.getRegParam)
@@ -53,10 +52,13 @@ class GradientDescent(dim: Int, lr_0: Double, decay: Double, batchNumber: Double
       l2Reg(grad, weight, loss.getRegParam)
     val regLoss = loss.getReg(weight)
 
-    window += 1
-    if (window == batchNum) {
+    //    logger.info(s"Epoch[$epoch] batch $batch gradient " +
+    //      s"cost ${System.currentTimeMillis() - startTime} ms, "
+    //      + s"batch size=$batchSize, obj loss=${objLoss / batchSize}, reg loss=$regLoss")
+    batch += 1
+    if (batch == batchNum) {
       epoch += 1
-      window = 0
+      batch = 0
     }
     (grad, batchSize, objLoss, regLoss)
   }
