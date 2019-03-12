@@ -14,8 +14,6 @@ object MLConf {
   val ML_NUM_FEATURE: String = "flink.sketchml.feature.num"
   val ML_LEARN_RATE: String = "flink.sketchml.learn.rate"
   val DEFAULT_ML_LEARN_RATE: Double = 0.1
-  val ML_REG_L1: String = "flink.sketchml.reg.l1"
-  val DEFAULT_ML_REG_L1: Double = 0.1
   val ML_REG_L2: String = "flink.sketchml.reg.l2"
   val DEFAULT_ML_REG_L2: Double = 0.1
   // Sketch Conf
@@ -44,7 +42,6 @@ object MLConf {
     parameters.get(ML_NUM_WORKER).toInt,
     parameters.get(ML_NUM_FEATURE).toInt + 1,
     parameters.getDouble(ML_LEARN_RATE, DEFAULT_ML_LEARN_RATE),
-    parameters.getDouble(ML_REG_L1, DEFAULT_ML_REG_L1),
     parameters.getDouble(ML_REG_L2, DEFAULT_ML_REG_L2),
     parameters.get(SKETCH_GRADIENT_COMPRESSOR, DEFAULT_SKETCH_GRADIENT_COMPRESSOR),
     parameters.getInt(SKETCH_QUANTIZATION_BIN_NUM, DEFAULT_SKETCH_QUANTIZATION_BIN_NUM),
@@ -58,7 +55,7 @@ object MLConf {
 
 @SerialVersionUID(1113799434508676188L)
 case class MLConf(algo: String, input: String, format: String, workerNum: Int,
-                  featureNum: Int, learnRate: Double, l1Reg: Double, l2Reg: Double,
+                  featureNum: Int, learnRate: Double, l2Reg: Double,
                   compressor: String, quantBinNum: Int, sketchGroupNum: Int,
                   sketchRowNum: Int, sketchColRatio: Double, fixedPointBitNum: Int, windowSize: Int) extends Serializable {
   require(Seq(ML_LOGISTIC_REGRESSION, ML_SUPPORT_VECTOR_MACHINE, ML_LINEAR_REGRESSION).contains(algo),
