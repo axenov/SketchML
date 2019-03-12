@@ -37,7 +37,7 @@ it is necessary to cancel Flink job manually. The end of the processing can be i
 * Flink 1.7.0
 * Scala 2.11
 
-### Parameter server dependency
+### Executable jar creation
 Project is dependent on parameter server library.
 ```xml
 <dependency>
@@ -49,7 +49,7 @@ Project is dependent on parameter server library.
 However it is not available in remote repositories, that's why it is necessary to compile [Flink parameter server library](https://github.com/FlinkML/flink-parameter-server)
 to `.jar` format and then publish it to local [Maven](https://maven.apache.org/) repository (jar should be effectively placed under `repositories/hu/sztaki/ilab/flink-ps_2.11/0.1.0` path).
 
-Then to create executable jar it's enough to run `mvn package` from root folder. Executable jar, which can be used to 
+Then to create executable jar of the whole project it's enough to run `mvn package` from the root folder. Executable jar, which can be used to 
 submit on Flink will be stored under `.ml/target/ml-1.0.0-jar-with-dependencies.jar`
 
 ### Must have parameters
