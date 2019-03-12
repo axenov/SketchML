@@ -36,6 +36,7 @@ it is necessary to cancel Flink job manually. The end of the processing can be i
 * Maven 3.5.4
 * Flink 1.7.0
 * Scala 2.11
+
 ### Parameter server dependency
 Project is dependent on parameter server library.
 ```xml
