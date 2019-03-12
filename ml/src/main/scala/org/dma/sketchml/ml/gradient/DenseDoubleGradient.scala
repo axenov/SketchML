@@ -4,6 +4,7 @@ package org.dma.sketchml.ml.gradient
 import org.apache.flink.ml.math.{DenseVector, SparseVector}
 import org.dma.sketchml.ml.conf.MLConf
 import org.dma.sketchml.ml.gradient.Kind.Kind
+import org.dma.sketchml.ml.objective.GradientDescent
 import org.dma.sketchml.ml.util.Maths
 
 class DenseDoubleGradient(d: Int, val values: Array[Double], _conf: MLConf = null) extends Gradient(d, _conf) {

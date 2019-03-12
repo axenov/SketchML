@@ -11,12 +11,12 @@ object Adam {
   private val logger: Logger = LoggerFactory.getLogger(Adam.getClass)
 
   def apply(conf: MLConf): GradientDescent =
-    new Adam(conf.featureNum, conf.learnRate, conf.learnDecay, conf.batchNum)
+    new Adam(conf.featureNum, conf.learnRate, conf.learnDecay, conf.windowIterations)
 
 }
 
-class Adam(dim: Int, lr_0: Double, decay: Double, batchNumber: Double)
-  extends GradientDescent(dim, lr_0, decay, batchNumber ) {
+ class  Adam(dim: Int, lr_0: Double, decay: Double, batchSpRatio: Double)
+  extends GradientDescent(dim, lr_0, decay, batchSpRatio) {
   override protected val logger: Logger = Adam.logger
 
   val beta1 = 0.9
