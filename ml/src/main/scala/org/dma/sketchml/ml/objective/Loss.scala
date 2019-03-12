@@ -42,7 +42,6 @@ abstract class L1Loss extends Loss {
 
   override def getReg(w: Vector): Double = {
     if (isL1Reg)
-      //Vectors.norm(w, 1) * lambda
       this.firstNorm(w) * lambda
     else
       0.0

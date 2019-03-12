@@ -4,7 +4,7 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model.{loss, optimizer}
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
-import org.dma.sketchml.ml.objective.{Adam, GradientDescent, L2HingeLoss}
+import org.dma.sketchml.ml.objective.{GradientDescent, L2HingeLoss}
 import org.slf4j.{Logger, LoggerFactory}
 
 object SVMModel {
@@ -19,7 +19,7 @@ class SVMModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Generali
   @transient override protected val logger: Logger = SVMModel.logger
 
   override protected def initModel(): Unit = {
-    optimizer = Adam(_conf)
+    optimizer = GradientDescent(_conf)
     loss = new L2HingeLoss(_conf.l2Reg)
   }
 

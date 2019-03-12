@@ -3,7 +3,7 @@ package org.dma.sketchml.ml.algorithm
 import hu.sztaki.ilab.ps.{FlinkParameterServer, WorkerLogic}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.ml.math.DenseVector
-import org.apache.flink.streaming.api.scala.function.{AllWindowFunction, ProcessWindowFunction, WindowFunction}
+import org.apache.flink.streaming.api.scala.function.WindowFunction
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow
 import org.apache.flink.util.Collector
@@ -34,10 +34,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   @transient protected var dataStream: DataStream[LabeledData] = _
 
   def loadData(): Unit = {
-    //we don't need to check the loading time, as paper skip data loading time
-    //val startTime = System.currentTimeMillis()
     dataStream = Parser.loadStreamData(conf.input, conf.format, conf.featureNum, conf.workerNum)(env)
-    //logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
   }
 
   protected def initModel(): Unit
@@ -71,9 +68,11 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       */
     val paramInit: Int => Gradient = (i: Int) => {
       LoggerFactory.getLogger("Parameter server").info("GRADIENT INITIALIZED ON THE SERVER")
-      var weights= new DenseDoubleGradient(conf.featureNum)
-      //************* Random initialization 
-      //weights.plusBy(new DenseVector(Array.fill(conf.featureNum) { scala.util.Random.nextDouble() * 0.001}),1)
+      val weights = new DenseDoubleGradient(conf.featureNum)
+      // random weights initialization
+      weights.plusBy(new DenseVector(Array.fill(conf.featureNum) {
+        scala.util.Random.nextDouble() * 0.001
+      }), 1)
       weights
     }
 
@@ -85,24 +84,23 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
       val updateStartTime = System.currentTimeMillis()
 
       logger.info("WEIGHTS UPDATE")
+      // get weights out of gradient class wrapper
       val weights = weightsInGradient.toDense.values
-      // ************* Not Adam update
+
+      // decompress gradient values
       val decompressedGradient = update.toAuto
       if (decompressedGradient.kind.equals(Kind.DenseDouble)) {
         val g = decompressedGradient.asInstanceOf[DenseDoubleGradient].values
         for (i <- weights.indices) {
           weights(i) -= g(i) * update.conf.learnRate
         }
-
       } else {
         val k = decompressedGradient.asInstanceOf[SparseDoubleGradient].indices
         val v = decompressedGradient.asInstanceOf[SparseDoubleGradient].values
         for (i <- k.indices)
           weights(k(i)) -= v(i) * update.conf.learnRate
-
       }
-      //************* Adam update
-      // optimizer.update(update,new DenseVector(weights))
+
       logger.info("END OF WEIGHTS UPDATE")
       logger.info(s"Weights update cost (in ms): ${System.currentTimeMillis() - updateStartTime}")
 
@@ -111,7 +109,7 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
 
     /**
       * Logic used by each of the workers, defines behavior regarding receiving new data from incoming stream and data
-      * received from the server as an answer to pull.
+      * received from the server as an answer to pull. PullLimiter added to buffer pull requests on worker side.
       */
     val workerLogic: WorkerLogic[DataSet, Int, Gradient, Gradient] = WorkerLogic.addPullLimiter(new GradientDistributionWorker(conf, optimizer, loss), 1)
 
@@ -135,24 +133,6 @@ abstract class GeneralizedLinearModel(protected val conf: MLConf, @transient pro
   }
 
   def getName: String
-
-}
-
-@SerialVersionUID(1113799434508676095L)
-class ExtractTrainingDataWindowAll extends AllWindowFunction[LabeledData, DataSet, GlobalWindow] {
-
-  /**
-    * Groups incoming LabeledData into DataSet.
-    */
-  override def apply(window: GlobalWindow, input: Iterable[LabeledData], out: Collector[DataSet]): Unit = {
-    val trainData = new DataSet
-    val it = input.iterator
-    while (it.hasNext) {
-      val item = it.next()
-      trainData.add(item)
-    }
-    out.collect(trainData)
-  }
 }
 
 @SerialVersionUID(1113799434508676012L)

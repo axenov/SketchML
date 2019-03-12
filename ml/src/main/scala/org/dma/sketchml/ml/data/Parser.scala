@@ -17,7 +17,6 @@ object Parser extends Serializable {
       case Constants.FORMAT_LIBSVM => Parser.parseLibSVM
       case Constants.FORMAT_CSV => Parser.parseCSV
       case Constants.FORMAT_DUMMY => Parser.parseDummy
-      case Constants.FORMAT_LIBSVM_SEMICOLONS => Parser.parseLibSVMWithSemicolons
       case _ => throw new UnknownError("Unknown file format: " + format)
     }
     implicit val typeInfo: TypeInformation[LabeledData] = TypeInformation.of(classOf[LabeledData])
@@ -43,31 +42,6 @@ object Parser extends Serializable {
       values(i) = kv(1).toDouble
     }
     // we're adding bias term
-    values(nnz) = 1
-    indices(nnz) = maxDim - 1
-    val x = SparseVector(maxDim, indices, values)
-
-    LabeledData(y, x)
-  }
-
-  def parseLibSVMWithSemicolons(line: String, maxDim: Int, negY: Boolean = true): LabeledData = {
-    val splits = line.trim.split(" ")
-    if (splits.length < 1)
-      return null
-
-    var y = splits(0).toDouble
-    if (negY && Math.abs(y - 1) > Maths.EPS)
-      y = -1
-
-    val nnz = splits.length - 1
-    val indices = new Array[Int](nnz + 1)
-    val values = new Array[Double](nnz + 1)
-    for (i <- 0 until nnz) {
-      val kv = splits(i + 1).trim.split(";")
-      // -1 because in libsvm format features are numbered from 1
-      indices(i) = kv(0).toInt - 1
-      values(i) = kv(1).toDouble
-    }
     values(nnz) = 1
     indices(nnz) = maxDim - 1
     val x = SparseVector(maxDim, indices, values)

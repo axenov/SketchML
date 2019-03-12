@@ -4,7 +4,7 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.dma.sketchml.ml.algorithm.GeneralizedLinearModel.Model._
 import org.dma.sketchml.ml.common.Constants
 import org.dma.sketchml.ml.conf.MLConf
-import org.dma.sketchml.ml.objective.{Adam, GradientDescent, L2LogLoss}
+import org.dma.sketchml.ml.objective.{GradientDescent, L2LogLoss}
 import org.slf4j.{Logger, LoggerFactory}
 
 object LRModel {
@@ -19,7 +19,7 @@ class LRModel(_conf: MLConf, _env: StreamExecutionEnvironment) extends Generaliz
   @transient override protected val logger: Logger = LRModel.logger
 
   override protected def initModel(): Unit = {
-    optimizer = Adam(_conf)
+    optimizer = GradientDescent(_conf)
     loss = new L2LogLoss(_conf.l2Reg)
   }
 

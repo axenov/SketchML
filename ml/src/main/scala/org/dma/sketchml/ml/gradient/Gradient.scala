@@ -43,7 +43,6 @@ object Gradient {
     }
     logger.info(s"Gradient compression from ${grad.kind} to ${res.kind} cost " +
       s"${System.currentTimeMillis() - startTime} ms")
-    // uncomment to evaluate the performance of compression
     evaluateCompression(grad, res)
     res
   }

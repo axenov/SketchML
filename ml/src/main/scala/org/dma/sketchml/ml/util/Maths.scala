@@ -49,7 +49,6 @@ object Maths extends Serializable {
 
   def dot(a: DenseVector, b: DenseVector): Double = {
     require(a.size == b.size, s"Dot between vectors of size ${a.size} and ${b.size}")
-    //(a.values, b.values).zipped.map(_*_).sum
     val size = a.size
     val aValues = a.data
     val bValues = b.data
@@ -66,7 +65,6 @@ object Maths extends Serializable {
     val bIndices = b.indices
     val bValues = b.data
 
-    //val size = b.numActives
     val size = bIndices.length
     var dot = 0.0
     for (i <- 0 until size) {
@@ -82,11 +80,9 @@ object Maths extends Serializable {
     require(a.size == b.size, s"Dot between vectors of size ${a.size} and ${b.size}")
     val aIndices = a.indices
     val aValues = a.data
-    //val aNumActives = a.numActives
     val aNumActives = a.size
     val bIndices = b.indices
     val bValues = b.data
-    //val bNumActives = b.numActives
     val bNumActives = b.size
     var aOff = 0
     var bOff = 0
@@ -113,7 +109,6 @@ object Maths extends Serializable {
   def cosine(a: Array[Double], b: Array[Double]): Double = {
     val va = new DenseVector(a)
     val vb = new DenseVector(b)
-    //dot(va, vb) / (Vectors.norm(va, 2) * Vectors.norm(vb, 2))
 
     dot(va, vb) / (this.secondNorm(va) * this.secondNorm(vb))
 

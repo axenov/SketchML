@@ -24,43 +24,12 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     * @param ps
     * Interface to parameter server.
     */
-  // Validation time per each window and its accumaltive after each window
-
   override def onRecv(data: DataSet, ps: ParameterServerClient[Int, Gradient, Gradient]): Unit = {
-    // request pull from the server - it's asynchronous, we do not wait for the answer
-    val startWindowTimestamp: Long = System.currentTimeMillis()
+    // adds window to local queue
     unpredictedData.enqueue(data)
-
+    val startWindowTimestamp: Long = System.currentTimeMillis()
+    // request pull from the server - it's asynchronous, we do not wait for the answer
     ps.pull(1)
-    //    logger.info("ON NEW WINDOW")
-    //
-    //    // weights initialization
-    //    if (weights == null) {
-    //      weights = new DenseVector(Array.fill(conf.featureNum) {
-    //        scala.util.Random.nextDouble() * 0.001
-    //      })
-    //    }
-    //    // validation on new window before it is used to training
-    //    val validStart = System.currentTimeMillis()
-    //    val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    //    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "
-    //      + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, "
-    //      + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    //    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")// To calculate the computation and update local gradient time
-    //    // training
-    //    val miniBathStart = System.currentTimeMillis()
-    //
-    //    // How many times train gradient on one window
-    //    for (a <- 1 to conf.windowIterations) {
-    //      val (grad, _, _, _) =
-    //        optimizer.miniBatchGradientDescent(weights, data, loss)
-    //      gradient = grad
-    //      optimizer.update(gradient, weights)
-    //    }
-    //    logger.info(s"Calculation of local gradient and weights cost (in ms): ${System.currentTimeMillis() - miniBathStart}")
-    //
-    //    // push new value to the server
-    //    ps.push(1, Gradient.compress(gradient, conf))
     logger.info(s"RunTime Per window accumulation costs (in ms): ${System.currentTimeMillis() - startWindowTimestamp}")
     logger.info("END OF WINDOW")
   }
@@ -87,17 +56,17 @@ class GradientDistributionWorker(conf: MLConf, optimizer: GradientDescent, loss:
     val data = unpredictedData.dequeue()
     val weights = new DenseVector(paramValue.toDense.values)
 
-    val gradStart = System.currentTimeMillis()
+    // calculate gradient
     val (grad, _, _, _) = optimizer.miniBatchGradientDescent(weights, data, loss)
+    // compress and push to server
     ps.push(1, Gradient.compress(grad, conf))
     logger.info(s"RunTime Per window costs (in ms):${System.currentTimeMillis() - startPullRecv},")
 
+    // Validation
     val validStart: Long = System.currentTimeMillis()
     val (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision) = ValidationUtil.calLossAucPrecision(weights, data, loss)
-    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, "+ s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, " + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
-    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision") // To calculate the computation and update local gradient time
+    logger.info(s"Validation cost ${System.currentTimeMillis() - validStart} ms, " + s"loss=$validLoss, accuracy=$accuracy, auc=$aucResult, precision=$precision, " + s"trueRecall=$trueRecall, falseRecall=$falseRecall")
+    logger.info(s"PLOT::${System.currentTimeMillis() - startTimestamp},$validLoss,$aucResult,$trueRecall,$falseRecall,$accuracy,$precision")
     logger.info("END ON PULL RECV")
-
-
   }
 }

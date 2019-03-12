@@ -103,12 +103,6 @@ object ValidationUtil extends Serializable {
       precision = 1.0 * truePos / (truePos + falsePos)
     }
 
-    //logger.info(truePos.toString)
-    //logger.info(trueNeg.toString)
-    //logger.info(falsePos.toString)
-    //logger.info(falseNeg.toString)
-
-
     (validLoss, truePos, trueNeg, falsePos, falseNeg, validNum, accuracy, trueRecall, falseRecall, aucResult, precision)
   }
 }
